@@ -1,0 +1,19 @@
+{
+  "name": "auto-first-screen-time",
+  "version": "1.0.0",
+  "description": "A tool for auto computing first screen time of one page.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hoperyy/auto-first-screen-time.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hoperyy/auto-first-screen-time/issues"
+  },
+  "homepage": "https://github.com/hoperyy/auto-first-screen-time#readme"
+}
