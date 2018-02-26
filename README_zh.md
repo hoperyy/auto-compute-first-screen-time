@@ -34,6 +34,9 @@ require('auto-compute-first-screen-time')({
         // result.lastedTime: 首屏花费的时间（ms）
     }
 });
+
+// 页面其他代码
+// ...
 ```
 
 ## LICENSE
