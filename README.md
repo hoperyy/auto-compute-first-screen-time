@@ -1,4 +1,4 @@
-[中文文档](./README_zh.md)
+*[中文文档](./README_zh.md)*
 
 ## What is this ?
 
@@ -11,7 +11,7 @@ A tool for auto computing first screen time of one page.
 
 ## Precision
 
-less than 100ms (tested in wifi/fast 3G/slow 3G)
+the distance betwwn average tested time and real first screen time is less than 100ms (tested in wifi/fast 3G/slow 3G)
 
 ## How To Use
 
