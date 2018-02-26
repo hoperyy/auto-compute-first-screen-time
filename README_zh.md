@@ -17,9 +17,7 @@
 在页面代码执行前，运行如下代码
 
 ```
-var autoComputeFirstScreent = require('auto-compute-first-screen-time');
-
-autoFirstScreen({
+require('auto-compute-first-screen-time')({
     xhr: {
         // 只监听该数组内的 xhr 请求，子项的格式为正则
         // 举例: [/mtop\.alibaba\.com/i]
