@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/hoperyy/auto-first-screen-time/issues"
   },
-  "homepage": "https://github.com/hoperyy/auto-first-screen-time#readme"
+  "homepage": "https://github.com/hoperyy/auto-first-screen-time#readme",
+  "dependencies": {
+    "mutationobserver-shim": "^0.3.2"
+  }
 }
