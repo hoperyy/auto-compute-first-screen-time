@@ -1,5 +1,5 @@
 /**
- * @description 自动计算首屏，和真实首屏时间对比，误差在 100ms 以内
+ * @description 自动计算首屏，和手动埋点相比，误差在 30ms 以内
  * @author 刘远洋 https://github.com/hoperyy
  * @date 2018/02/22
  */
@@ -17,6 +17,8 @@ var MutationObserver = win.MutationObserver;
 
 // dom 变化监听器
 var mutationObserver = null;
+
+var mutationIntervalTimer = null;
 
 // 是否已经上报的标志
 var hasReported = false;
@@ -60,7 +62,7 @@ function parseUrl(url) {
     return anchor;
 }
 
-function getMatchedTime(domUpdatePool) {
+function getMatchedTimeInfo(domUpdatePool) {
     // 倒序
     domUpdatePool.sort(function (a, b) {
         if (a.time < b.time) {
@@ -71,14 +73,12 @@ function getMatchedTime(domUpdatePool) {
     });
 
     // 获取当前时刻的 dom 信息，作为基准值
+    // console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 分界线 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
     var finalImages = getImagesInFirstScreen();
 
-    // 默认选取最近一次 dom 更新 为首屏时间
-    var targetInfo = domUpdatePool[0];
+    var targetInfo;
 
-    // domUpdatePool[1].images = domUpdatePool[0].images;
-
-    // console.log(domUpdatePool, finalImages);
+    // console.log('finalImages: ', finalImages.length, Date.now() - domUpdatePool[0].time);
 
     var isBiggerArray = function (bigArr, smallArr) {
         for (var i = 0, len = smallArr.length; i < len; i++) {
@@ -89,20 +89,22 @@ function getMatchedTime(domUpdatePool) {
         return true;
     };
 
-    for (var i = 0, len = domUpdatePool.length; i < len; i++) {
+    // 从最近的一次 dom 变化开始对比
+    for (var i = 1, len = domUpdatePool.length; i < len; i++) {
         var item = domUpdatePool[i];
 
         // 如果最终状态的首屏有图片，则通过比较首屏图片数量来确定是否首屏加载完毕；否则直接使用最后一次渲染时的 dom（默认）
         if (finalImages.length > 0) {
-            // 如果某个时刻可检测到的图片包含所有的最终状态图片，认为该时刻是首屏稳定状态
-            if (isBiggerArray(item.images, finalImages)) {
-                // console.log('倒数第：', i, ' 个渲染点');
-                targetInfo = item;
-            } else {
+            if (!isBiggerArray(item.images, finalImages)) {
                 break;
             }
         }
     }
+
+    i--;
+
+    // i === 0 说明没有匹配的
+    targetInfo = domUpdatePool[i];
 
     return targetInfo;
 }
@@ -155,6 +157,7 @@ function recordDomInfo() {
     // 记录当前时刻的 DOM 信息
     var nowTime = Date.now();
     var images = getImagesInFirstScreen();
+    // var images = getImagesInFullPage();
     var obj = {
         time: nowTime, // 当前时刻
         blankTime: Date.now() - lastDomUpdateTime || Date.now(), // 距离上次记录有多久（用于调试）
@@ -165,17 +168,13 @@ function recordDomInfo() {
 
     var imgIndex = 0;
     var afterDownload = function (src) {
-        // 记录该图片加载完成的时间，以最早那次为准
-        if (!imgDowloadTimePool[src]) {
-            imgDowloadTimePool[src] = Date.now();
-        }
         imgIndex++;
 
         if (imgIndex === images.length) {
             // 获取所有图片中加载时间最迟的时刻，作为 finishedTime
             obj.finishedTime = getLastImgDownloadTime(images);
 
-            // 如果该时刻恰好是首屏刚刚稳定的时刻
+            // 如果图片加载完成时，发现该时刻就是目标时刻，则执行上报
             if (obj.isTargetTime) {
                 // 回调
                 _options.onTimeFound({
@@ -187,11 +186,19 @@ function recordDomInfo() {
     };
 
     images.forEach(function (src) {
-        var img = new Image();
-        img.onload = img.onerror = function () {
+        if (imgDowloadTimePool[src]) {
             afterDownload(src);
-        };
-        img.src = src;
+        } else {
+            var img = new Image();
+            img.onload = img.onerror = function () {
+                // 记录该图片加载完成的时间，以最早那次为准
+                if (!imgDowloadTimePool[src]) {
+                    imgDowloadTimePool[src] = Date.now();
+                }
+                afterDownload(src);
+            };
+            img.src = src;
+        }
     });
 
     // 如果没有图片，则以当前 DOM change 的时间为准
@@ -206,7 +213,11 @@ function recordDomInfo() {
 
 function observeDomChange() {
     // 记录首屏 DOM 的变化
-    mutationObserver = new MutationObserver(recordDomInfo);
+    mutationObserver = new MutationObserver(function () {
+        recordDomInfo();
+        clearInterval(mutationIntervalTimer);
+        mutationIntervalTimer = setInterval(recordDomInfo, 300);
+    });
     mutationObserver.observe(document.body, {
         childList: true,
         subtree: true
@@ -216,7 +227,7 @@ function observeDomChange() {
     recordDomInfo();
 }
 
-function getImagesInFirstScreen() {
+function _queryImages(filter, success) {
     var screenHeight = win.innerHeight;
 
     var nodeIterator = doc.createNodeIterator(
@@ -234,7 +245,7 @@ function getImagesInFirstScreen() {
     var currentNode = nodeIterator.nextNode();
     var imgList = [];
     while (currentNode) {
-        if (getElementTop(currentNode) >= screenHeight) {
+        if (filter(currentNode)) {
             currentNode = nodeIterator.nextNode();
             continue;
         }
@@ -250,34 +261,63 @@ function getImagesInFirstScreen() {
 
         var protocol = parseUrl(src).protocol;
         if (src && protocol && protocol.indexOf('http') === 0) {
-            imgList.push(src);
+            success(src);
         }
 
         currentNode = nodeIterator.nextNode();
     }
+}
+
+function getImagesInFirstScreen() {
+    var screenHeight = win.innerHeight;
+
+    var imgList = [];
+
+    _queryImages(function (currentNode) {
+        var topToView = currentNode.getBoundingClientRect().top;
+        var scrollTop = doc.body.scrollTop;
+
+        if ((scrollTop + topToView) >= screenHeight) {
+            return true;
+        }
+    }, function (src) {
+        imgList.push(src);
+    });
 
     return imgList;
-};
+}
 
-function getElementTop(element) {
-    var topToView = element.getBoundingClientRect().top,
-        scrollTop = doc.body.scrollTop;
+function getImagesInFullPage() {
+    var imgList = [];
 
-    return (scrollTop + topToView);
-};
+    _queryImages(function () { }, function (src) {
+        imgList.push(src);
+    });
+
+    return imgList;
+}
 
 function handlerAfterStableTimeFound() {
     if (hasReported) {
         return;
     }
 
+    // recordDomInfo();
+
     hasReported = true;
     mutationObserver.disconnect();
+    clearInterval(mutationIntervalTimer);
 
-    var targetInfo = getMatchedTime(domUpdatePool);
+    // 记录当前时刻
+    recordDomInfo();
+
+    // 找到离稳定状态最近的渲染变动时刻
+    var targetInfo = getMatchedTimeInfo(domUpdatePool);
+
+    // 标记该变动时刻为目标时刻
     targetInfo.isTargetTime = true;
 
-    // 如果 target 时刻的图片已经加载完毕
+    // 如果 target 时刻的图片已经加载完毕，则上报该信息中记录的完成时刻
     if (targetInfo.finishedTime !== -1) {
         _options.onTimeFound({
             lastedTime: targetInfo.finishedTime - window.performance.timing.navigationStart,

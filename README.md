@@ -1,5 +1,7 @@
 *[中文文档](./README_zh.md)*
 
+**Status: beta**
+
 ## What is this ?
 
 A tool for auto computing first screen time of one page.
