@@ -1,5 +1,5 @@
 /**
- * @description 自动计算首屏，和手动埋点相比，误差在 30ms 以内
+ * @description 自动计算首屏，和手动埋点相比，误差在 200ms 以内
  * @author 刘远洋 https://github.com/hoperyy
  * @date 2018/02/22
  */
