@@ -22,13 +22,15 @@
 require('auto-compute-first-screen-time')({
     xhr: {
         /*
-         * 只监听该数组内的 xhr 请求，子项的格式为正则
+         * 只监听该数组内的 xhr 请求
+         * 子项的格式为正则
          * 举例: [/mtop\.alibaba\.com/i]
          */
         limitedIn: [],
 
         /*
-         * 不抓取的 xhr 的请求，子项的格式为正则
+         * 不抓取的 xhr 的请求
+         * 子项的格式为正则
          * 举例: [/list\.alibaba\.com/i]
          */
         exclude: []

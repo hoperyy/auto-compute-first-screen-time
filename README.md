@@ -23,12 +23,14 @@ run this code before the scripts of page run.
 require('auto-compute-first-screen-time')({
     xhr: {
         /*
-         * the xhr request that 'auto-compute-first-screen-time' will catch for computing data returning time; RegExp Required;
+         * the xhr request that 'auto-compute-first-screen-time' will catch for computing data returning time;
+         * RegExp Required;
          * example: [/mtop\.alibaba\.com/i]
          */
         limitedIn: [],
 
-        /* the xhr request that 'auto-compute-first-screen-time' will not catch for computing data returning time; RegExp Required;
+        /* the xhr request that 'auto-compute-first-screen-time' will not catch for computing data returning time;
+         * RegExp Required;
          * example: [/list\.alibaba\.com/i]
          */
         exclude: []
