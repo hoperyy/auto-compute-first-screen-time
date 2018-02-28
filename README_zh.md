@@ -12,7 +12,7 @@
 
 ## 和手动埋点相比，误差是多少
 
-经过各种测试，和真实的首屏时间相比误差在 100ms 以内（wifi/fast 3G/slow 3G）
+经过各种测试，和真实的首屏时间相比误差在 200ms 以内（wifi/fast 3G/slow 3G）
 
 ## 如何使用
 
@@ -45,7 +45,7 @@ require('auto-compute-first-screen-time')({
          */
 
         // 对于首屏时间少于 3s 的页面（较快），可以接受的误差值最好在 200ms 以内，否则误差就过大了，然后上报数据
-        if (result.finishedTime <= 3000) {
+        if (result.lastedTime <= 3000) {
             if (result.maxErrorTime <= 200) {
                 // report
             }
