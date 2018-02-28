@@ -13,12 +13,12 @@ require('mutationobserver-shim');
 var win = window;
 var doc = win.document;
 
+var timeRunner = genTimeRunner();
+
 var MutationObserver = win.MutationObserver;
 
 // dom 变化监听器
 var mutationObserver = null;
-
-var mutationIntervalTimer = null;
 
 // 是否已经上报的标志
 var hasReported = false;
@@ -43,6 +43,7 @@ var _options = {
     onTimeFound: function (/* result */) {
         // result.finishedTime: 首屏完成的时刻
         // result.lastedTime: result.finishedTime - window.performance.timing.navigationStart 首屏持续的时间
+        // result.maxErrorTime: targetInfo.blankTime // 最大误差值
     },
     xhr: {
         limitedIn: [],
@@ -74,11 +75,12 @@ function getMatchedTimeInfo(domUpdatePool) {
 
     // 获取当前时刻的 dom 信息，作为基准值
     // console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 分界线 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
-    var finalImages = getImagesInFirstScreen();
+    var finalImages = domUpdatePool[0].images;
 
     var targetInfo;
 
-    // console.log('finalImages: ', finalImages.length, Date.now() - domUpdatePool[0].time);
+    // console.log('finalImages 长度: ', finalImages.length, domUpdatePool);
+    // console.log('最后一次变动距离稳定时刻的时间: ', domUpdatePool[0].time - domUpdatePool[1].time);
 
     var isBiggerArray = function (bigArr, smallArr) {
         for (var i = 0, len = smallArr.length; i < len; i++) {
@@ -88,6 +90,11 @@ function getMatchedTimeInfo(domUpdatePool) {
         }
         return true;
     };
+
+    // 如果最近一次获取的 dom 变化和稳定状态的图片还是不符合，并且间隔超过了 300ms，则不执行上报
+    // if (domUpdatePool[0].blankTime >= 250 && !isBiggerArray(domUpdatePool[1].images, finalImages)) {
+    //     return null;
+    // }
 
     // 从最近的一次 dom 变化开始对比
     for (var i = 1, len = domUpdatePool.length; i < len; i++) {
@@ -134,7 +141,7 @@ function insertTestTimeScript() {
     });
 }
 
-var getLastImgDownloadTime = function (images) {
+function getLastImgDownloadTime(images) {
     var timeArr = [];
 
     images.forEach(function (src) {
@@ -151,19 +158,20 @@ var getLastImgDownloadTime = function (images) {
     });
 
     return timeArr[0];
-};
+}
 
-function recordDomInfo() {
+function recordDomInfo(param) {
     // 记录当前时刻的 DOM 信息
     var nowTime = Date.now();
     var images = getImagesInFirstScreen();
     // var images = getImagesInFullPage();
     var obj = {
-        time: nowTime, // 当前时刻
+        isFromInternal: (param && param.isInterval) ? true : false,
+        isTargetTime: false,
+        images: images,
         blankTime: Date.now() - lastDomUpdateTime || Date.now(), // 距离上次记录有多久（用于调试）
         finishedTime: -1, // 当前时刻下，所有图片加载完毕的时刻
-        images: images,
-        isTargetTime: false
+        time: nowTime // 当前时刻
     };
 
     var imgIndex = 0;
@@ -179,7 +187,8 @@ function recordDomInfo() {
                 // 回调
                 _options.onTimeFound({
                     lastedTime: obj.finishedTime - window.performance.timing.navigationStart,
-                    finishedTime: obj.finishedTime
+                    finishedTime: obj.finishedTime,
+                    maxErrorTime: obj.blankTime // 最大误差值
                 });
             }
         }
@@ -211,12 +220,89 @@ function recordDomInfo() {
     lastDomUpdateTime = Date.now();
 }
 
+function genTimeRunner() {
+    var timer = null;
+    var shouldBreak = false;
+
+    function clearInterval() {
+        clearTimeout(timer);
+        shouldBreak = true;
+    }
+
+    function setInterval(callback, delay) {
+        shouldBreak = false;
+        var startTime = Date.now();
+        var count = 0;
+        var handler = function () {
+            clearTimeout(timer);
+
+            count++;
+            var offset = Date.now() - (startTime + count * delay);
+            var nextTime = delay - offset;
+            if (nextTime < 0) {
+                nextTime = 0;
+            }
+
+            callback();
+
+            if (shouldBreak) {
+                return;
+            }
+
+            // console.log('修正时间：', nextTime);
+
+            timer = setTimeout(handler, nextTime);
+            // console.log(new Date().getTime() - (startTime + count * delay));
+        };
+        timer = setTimeout(handler, delay);
+
+        return timer;
+    }
+
+    return {
+        setInterval: setInterval,
+        clearInterval: clearInterval
+    };
+}
+
 function observeDomChange() {
+    // 虽然定时器的间隔设置为200，但实际运行来看，间隔的时机仍然有较大误差
+    var mutationIntervalDelay = 200;
+
+    // 一次轮询任务持续的最长时间
+    var maxQueryTime = 3000;
+
+    // var timeDot = Date.now();
+
+    var mutationIntervalStartTime = Date.now();
+
+    var mutationIntervalCallback = function () {
+        recordDomInfo({ isInterval: true });
+
+        // console.log('定时器回调执行时刻：', Date.now() - timeDot, timeDot);
+
+        // console.log('本次轮询持续的时间：', Date.now() - mutationIntervalStartTime);
+
+        if (Date.now() - mutationIntervalStartTime >= maxQueryTime) {
+            // 清除定时器
+            timeRunner.clearInterval();
+        }
+    };
+
     // 记录首屏 DOM 的变化
     mutationObserver = new MutationObserver(function () {
         recordDomInfo();
-        clearInterval(mutationIntervalTimer);
-        mutationIntervalTimer = setInterval(recordDomInfo, 300);
+
+        // timeDot = Date.now();
+
+        // console.log('Mutation change', timeDot);
+
+        mutationIntervalCount = 0;
+        timeRunner.clearInterval();
+
+        // 每次浏览器检测到的 dom 变化后，启动轮询定时器，但轮询次数有上限
+        mutationIntervalStartTime = Date.now();
+        timeRunner.setInterval(mutationIntervalCallback, mutationIntervalDelay);
     });
     mutationObserver.observe(document.body, {
         childList: true,
@@ -236,7 +322,7 @@ function _queryImages(filter, success) {
         function (node) {
             if (node.nodeName.toUpperCase() == 'IMG') {
                 return NodeFilter.FILTER_ACCEPT;
-            } else if (win.getComputedStyle(node).getPropertyValue('background-image') !== 'none') {
+            } else if (win.getComputedStyle(node).getPropertyValue('background-image') !== 'none') { // win.getComputedStyle 会引起重绘
                 return NodeFilter.FILTER_ACCEPT;
             }
         }
@@ -254,7 +340,7 @@ function _queryImages(filter, success) {
         if (currentNode.nodeName.toUpperCase() == 'IMG') {
             src = currentNode.getAttribute('src');
         } else {
-            var bgImg = win.getComputedStyle(currentNode).getPropertyValue('background-image');
+            var bgImg = win.getComputedStyle(currentNode).getPropertyValue('background-image'); // win.getComputedStyle 会引起重绘
             var match = bgImg.match(/^url\(['"](.+\/\/.+)['"]\)$/);
             src = match && match[1];
         }
@@ -274,7 +360,7 @@ function getImagesInFirstScreen() {
     var imgList = [];
 
     _queryImages(function (currentNode) {
-        var topToView = currentNode.getBoundingClientRect().top;
+        var topToView = currentNode.getBoundingClientRect().top; // getBoundingClientRect 会引起重绘
         var scrollTop = doc.body.scrollTop;
 
         if ((scrollTop + topToView) >= screenHeight) {
@@ -302,17 +388,20 @@ function handlerAfterStableTimeFound() {
         return;
     }
 
-    // recordDomInfo();
-
     hasReported = true;
     mutationObserver.disconnect();
-    clearInterval(mutationIntervalTimer);
+    timeRunner.clearInterval();
 
     // 记录当前时刻
     recordDomInfo();
 
     // 找到离稳定状态最近的渲染变动时刻
     var targetInfo = getMatchedTimeInfo(domUpdatePool);
+
+    if (!targetInfo) {
+        console.log('没有找到合适的上报点，不再上报');
+        return;
+    }
 
     // 标记该变动时刻为目标时刻
     targetInfo.isTargetTime = true;
@@ -321,7 +410,8 @@ function handlerAfterStableTimeFound() {
     if (targetInfo.finishedTime !== -1) {
         _options.onTimeFound({
             lastedTime: targetInfo.finishedTime - window.performance.timing.navigationStart,
-            finishedTime: targetInfo.finishedTime
+            finishedTime: targetInfo.finishedTime,
+            maxErrorTime: targetInfo.blankTime // 最大误差值
         });
     }
 }

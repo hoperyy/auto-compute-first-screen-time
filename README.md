@@ -22,19 +22,34 @@ run this code before the scripts of page run.
 ```
 require('auto-compute-first-screen-time')({
     xhr: {
-        // the xhr request that 'auto-compute-first-screen-time' will catch for computing data returning time; RegExp Required;
-        // example: [/mtop\.alibaba\.com/i]
+        /*
+         * the xhr request that 'auto-compute-first-screen-time' will catch for computing data returning time; RegExp Required;
+         * example: [/mtop\.alibaba\.com/i]
+         */
         limitedIn: [],
 
-        // the xhr request that 'auto-compute-first-screen-time' will not catch for computing data returning time; RegExp Required;
-        // example: [/list\.alibaba\.com/i]
+        /* the xhr request that 'auto-compute-first-screen-time' will not catch for computing data returning time; RegExp Required;
+         * example: [/list\.alibaba\.com/i]
+         */
         exclude: []
     },
 
     // callback after first screen was got
     onTimeFound: function (result) {
-        // result.finishedTime: The time at which first screen finished
-        // result.lastedTime: The time that first screen costs
+        /* 
+         * result.finishedTime: The time at which first screen finished
+         * result.lastedTime: The time that first screen costs
+         * result.maxErrorTime: The max error time than real time
+         */
+
+        // for first screen time that is less than 3s (fast page), the max error time limited in 200ms can be received because the page is fast
+        if (result.finishedTime <= 3000) {
+            if (result.maxErrorTime <= 200) {
+                // report
+            }
+        } else { // for slow page, any error time can be received because the page is so slow that specific time is not neccessary.
+            // report
+        }
     }
 });
 

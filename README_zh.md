@@ -21,19 +21,35 @@
 ```
 require('auto-compute-first-screen-time')({
     xhr: {
-        // 只监听该数组内的 xhr 请求，子项的格式为正则
-        // 举例: [/mtop\.alibaba\.com/i]
+        /*
+         * 只监听该数组内的 xhr 请求，子项的格式为正则
+         * 举例: [/mtop\.alibaba\.com/i]
+         */
         limitedIn: [],
 
-        // 不抓取的 xhr 的请求，子项的格式为正则
-        // 举例: [/list\.alibaba\.com/i]
+        /*
+         * 不抓取的 xhr 的请求，子项的格式为正则
+         * 举例: [/list\.alibaba\.com/i]
+         */
         exclude: []
     },
 
     // 首屏时间计算完成后的回调函数
     onTimeFound: function (result) {
-        // result.finishedTime: 首屏完成的时刻（ms）
-        // result.lastedTime: 首屏花费的时间（ms）
+        /*
+         * result.finishedTime: 首屏完成的时刻（ms）
+         * result.lastedTime: 首屏花费的时间（ms）
+         * result.maxErrorTime: 最大误差时间（ms）
+         */
+
+        // 对于首屏时间少于 3s 的页面（较快），可以接受的误差值最好在 200ms 以内，否则误差就过大了，然后上报数据
+        if (result.finishedTime <= 3000) {
+            if (result.maxErrorTime <= 200) {
+                // report
+            }
+        } else { // 对于首屏时间大于 3s 的页面，可以接受任何误差，因为页面本身就很慢，无需获取精确的首屏时间
+            // report
+        }
     }
 });
 
