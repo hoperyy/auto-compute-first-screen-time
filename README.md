@@ -13,7 +13,7 @@ A tool for auto computing first screen time of one page.
 
 ## Precision
 
-the distance betwwn average tested time and real first screen time is less than 100ms (tested in wifi/fast 3G/slow 3G)
+the distance betwwn average tested time and real first screen time is less than 200ms (tested in wifi/fast 3G/slow 3G)
 
 ## How To Use
 
@@ -45,7 +45,7 @@ require('auto-compute-first-screen-time')({
          */
 
         // for first screen time that is less than 3s (fast page), the max error time limited in 200ms can be received because the page is fast
-        if (result.finishedTime <= 3000) {
+        if (result.lastedTime <= 3000) {
             if (result.maxErrorTime <= 200) {
                 // report
             }
