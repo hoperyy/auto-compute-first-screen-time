@@ -44,14 +44,7 @@ require('auto-compute-first-screen-time')({
          * result.maxErrorTime: The max error time than real time
          */
 
-        // for first screen time that is less than 3s (fast page), the max error time limited in 200ms can be received because the page is fast
-        if (result.lastedTime <= 3000) {
-            if (result.maxErrorTime <= 200) {
-                // report
-            }
-        } else { // for slow page, any error time can be received because the page is so slow that specific time is not neccessary.
-            // report
-        }
+        // report(result.lastedTime)
     }
 });
 
