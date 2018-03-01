@@ -5,7 +5,7 @@
  */
 
 // 脚本开始运行的时间，用于各种 log 等
-var scriptStartTime = Date.now();
+var scriptStartTime = new Date().getTime();
 
 // 扩展 MutationObserver 的兼容性
 require('mutationobserver-shim');
@@ -164,14 +164,14 @@ function getLastImgDownloadTime(images) {
 
 function recordDomInfo(param) {
     // 记录当前时刻的 DOM 信息
-    var nowTime = Date.now();
+    var nowTime = new Date().getTime();
     var images = getImagesInFirstScreen();
     // var images = getImagesInFullPage();
     var obj = {
         isFromInternal: (param && param.isInterval) ? true : false,
         isTargetTime: false,
         images: images,
-        blankTime: Date.now() - lastDomUpdateTime || Date.now(), // 距离上次记录有多久（用于调试）
+        blankTime: new Date().getTime() - lastDomUpdateTime || new Date().getTime(), // 距离上次记录有多久（用于调试）
         finishedTime: -1, // 当前时刻下，所有图片加载完毕的时刻
         time: nowTime // 当前时刻
     };
@@ -204,7 +204,7 @@ function recordDomInfo(param) {
             img.onload = img.onerror = function () {
                 // 记录该图片加载完成的时间，以最早那次为准
                 if (!imgDowloadTimePool[src]) {
-                    imgDowloadTimePool[src] = Date.now();
+                    imgDowloadTimePool[src] = new Date().getTime();
                 }
                 afterDownload(src);
             };
@@ -219,7 +219,7 @@ function recordDomInfo(param) {
 
     domUpdatePool.push(obj);
 
-    lastDomUpdateTime = Date.now();
+    lastDomUpdateTime = new Date().getTime();
 }
 
 function genTimeRunner() {
@@ -233,13 +233,13 @@ function genTimeRunner() {
 
     function setInterval(callback, delay) {
         shouldBreak = false;
-        var startTime = Date.now();
+        var startTime = new Date().getTime();
         var count = 0;
         var handler = function () {
             clearTimeout(timer);
 
             count++;
-            var offset = Date.now() - (startTime + count * delay);
+            var offset = new Date().getTime() - (startTime + count * delay);
             var nextTime = delay - offset;
             if (nextTime < 0) {
                 nextTime = 0;
@@ -274,18 +274,18 @@ function observeDomChange() {
     // 一次轮询任务持续的最长时间
     var maxQueryTime = 3000;
 
-    // var timeDot = Date.now();
+    // var timeDot = new Date().getTime();
 
-    var mutationIntervalStartTime = Date.now();
+    var mutationIntervalStartTime = new Date().getTime();
 
     var mutationIntervalCallback = function () {
         recordDomInfo({ isInterval: true });
 
-        // console.log('定时器回调执行时刻：', Date.now() - timeDot, timeDot);
+        // console.log('定时器回调执行时刻：', new Date().getTime() - timeDot, timeDot);
 
-        // console.log('本次轮询持续的时间：', Date.now() - mutationIntervalStartTime);
+        // console.log('本次轮询持续的时间：', new Date().getTime() - mutationIntervalStartTime);
 
-        // if (Date.now() - mutationIntervalStartTime >= maxQueryTime) {
+        // if (new Date().getTime() - mutationIntervalStartTime >= maxQueryTime) {
         //     // 清除定时器
         //     timeRunner.clearInterval();
         // }
@@ -295,7 +295,7 @@ function observeDomChange() {
     mutationObserver = new MutationObserver(function () {
         recordDomInfo();
 
-        // timeDot = Date.now();
+        // timeDot = new Date().getTime();
 
         // console.log('Mutation change', timeDot);
 
@@ -303,7 +303,7 @@ function observeDomChange() {
         timeRunner.clearInterval();
 
         // 每次浏览器检测到的 dom 变化后，启动轮询定时器，但轮询次数有上限
-        mutationIntervalStartTime = Date.now();
+        mutationIntervalStartTime = new Date().getTime();
         timeRunner.setInterval(mutationIntervalCallback, mutationIntervalDelay);
     });
     mutationObserver.observe(document.body, {
@@ -462,7 +462,7 @@ function overrideXhr() {
     };
 
     var catchThisXhr = function () {
-        var sendTime = Date.now();
+        var sendTime = new Date().getTime();
         var poolName = 'request-' + this._http.url + '-' + sendTime;
         xhrStatusPool[poolName] = 'sent';
         xhrTimerStatusPool[poolName] = 'start';
@@ -474,7 +474,7 @@ function overrideXhr() {
                 xhrStatusPool[poolName] = 'complete';
 
                 //  当前时刻
-                var returnTime = Date.now();
+                var returnTime = new Date().getTime();
                 // 从这个请求返回的时刻起，在较短的时间段内的请求也需要被监听
                 catchXhrTimePool.push([returnTime, returnTime + _options.renderTimeAfterGettingData]);
 
@@ -500,7 +500,7 @@ function overrideXhr() {
             shouldCatch = false;
         }
 
-        var sendTime = Date.now();
+        var sendTime = new Date().getTime();
 
         // 如果发送数据请求的时间点超过了抓取数据的时间窗口，并且不在其他时间窗口内，则认为不该抓取该请求到队列
         if (isCatchXhrTimeout) {
