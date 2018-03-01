@@ -44,14 +44,7 @@ require('auto-compute-first-screen-time')({
          * result.maxErrorTime: 最大误差时间（ms）
          */
 
-        // 对于首屏时间少于 3s 的页面（较快），可以接受的误差值最好在 200ms 以内，否则误差就过大了，然后上报数据
-        if (result.lastedTime <= 3000) {
-            if (result.maxErrorTime <= 200) {
-                // report
-            }
-        } else { // 对于首屏时间大于 3s 的页面，可以接受任何误差，因为页面本身就很慢，无需获取精确的首屏时间
-            // report
-        }
+        // report(result.lastedTime)
     }
 });
 

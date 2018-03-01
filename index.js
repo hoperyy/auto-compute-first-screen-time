@@ -113,6 +113,8 @@ function getMatchedTimeInfo(domUpdatePool) {
     // i === 0 说明没有匹配的
     targetInfo = domUpdatePool[i];
 
+    // console.log(domUpdatePool);
+
     return targetInfo;
 }
 
@@ -283,10 +285,10 @@ function observeDomChange() {
 
         // console.log('本次轮询持续的时间：', Date.now() - mutationIntervalStartTime);
 
-        if (Date.now() - mutationIntervalStartTime >= maxQueryTime) {
-            // 清除定时器
-            timeRunner.clearInterval();
-        }
+        // if (Date.now() - mutationIntervalStartTime >= maxQueryTime) {
+        //     // 清除定时器
+        //     timeRunner.clearInterval();
+        // }
     };
 
     // 记录首屏 DOM 的变化
