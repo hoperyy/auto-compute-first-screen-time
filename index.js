@@ -423,7 +423,7 @@ function overrideXhr() {
     var xhrTimerStatusPool = {};
 
     var XhrProto = XMLHttpRequest.prototype;
-    XhrProto.owlTestFirstScreenSend = XhrProto.send;
+    XhrProto.testFirstScreenSend = XhrProto.send;
 
     var isXhrStatusPoolEmpty = function () {
         for (var key in xhrStatusPool) {
@@ -541,7 +541,7 @@ function overrideXhr() {
             catchThisXhr.apply(this, arguments);
         }
 
-        return XhrProto.owlTestFirstScreenSend.apply(this, [].slice.call(arguments));
+        return XhrProto.testFirstScreenSend.apply(this, [].slice.call(arguments));
     };
 }
 
