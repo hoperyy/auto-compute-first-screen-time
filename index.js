@@ -51,10 +51,10 @@ var _options = {
     },
 
     // 从第一个 XHR 请求发出，到可以认为所有影响首屏的数据请求都已发出的时间段
-    firstScreenXhrLastedTime: 800,
+    firstScreenXhrLastedTime: 1000,
 
     // 获取数据后，认为渲染 dom 的时长
-    renderTimeAfterGettingData: 200
+    renderTimeAfterGettingData: 300
 };
 
 function parseUrl(url) {
