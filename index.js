@@ -38,6 +38,8 @@ var imgDowloadTimePool = {};
 // 用于记录两次 mutationObserver 回调触发的时间间隔
 var lastDomUpdateTime;
 
+var xhrStatusPool = {};
+
 // 一些可配置项，下面是默认值
 var _options = {
     onTimeFound: function (/* result */) {
@@ -112,8 +114,6 @@ function getMatchedTimeInfo(domUpdatePool) {
 
     // i === 0 说明没有匹配的
     targetInfo = domUpdatePool[i];
-
-    // console.log(domUpdatePool);
 
     return targetInfo;
 }
@@ -190,7 +190,10 @@ function recordDomInfo(param) {
                 _options.onTimeFound({
                     lastedTime: obj.finishedTime - window.performance.timing.navigationStart,
                     finishedTime: obj.finishedTime,
-                    maxErrorTime: obj.blankTime // 最大误差值
+                    maxErrorTime: obj.blankTime, // 最大误差值
+
+                    xhrList: xhrStatusPool,
+                    domUpdatePool: domUpdatePool
                 });
             }
         }
@@ -201,14 +204,23 @@ function recordDomInfo(param) {
             afterDownload(src);
         } else {
             var img = new Image();
-            img.onload = img.onerror = function () {
+            img.src = src;
+
+            if (img.complete) {
                 // 记录该图片加载完成的时间，以最早那次为准
                 if (!imgDowloadTimePool[src]) {
                     imgDowloadTimePool[src] = new Date().getTime();
                 }
                 afterDownload(src);
-            };
-            img.src = src;
+            } else {
+                img.onload = img.onerror = function () {
+                    // 记录该图片加载完成的时间，以最早那次为准
+                    if (!imgDowloadTimePool[src]) {
+                        imgDowloadTimePool[src] = new Date().getTime();
+                    }
+                    afterDownload(src);
+                };
+            }
         }
     });
 
@@ -315,7 +327,7 @@ function observeDomChange() {
     recordDomInfo();
 }
 
-function _queryImages(filter, success) {
+function _queryImages(isMatch, success) {
     var screenHeight = win.innerHeight;
 
     var nodeIterator = doc.createNodeIterator(
@@ -333,7 +345,7 @@ function _queryImages(filter, success) {
     var currentNode = nodeIterator.nextNode();
     var imgList = [];
     while (currentNode) {
-        if (filter(currentNode)) {
+        if (!isMatch(currentNode)) {
             currentNode = nodeIterator.nextNode();
             continue;
         }
@@ -362,10 +374,22 @@ function getImagesInFirstScreen() {
     var imgList = [];
 
     _queryImages(function (currentNode) {
-        var topToView = currentNode.getBoundingClientRect().top; // getBoundingClientRect 会引起重绘
+        // 过滤函数，如果符合要求，返回 true
+
+        var boundingClientRect = currentNode.getBoundingClientRect();
+
+        // 如果已不显示
+        if (!boundingClientRect.top && !boundingClientRect.bottom) {
+            return false;
+        }
+
+        var topToView = boundingClientRect.top; // getBoundingClientRect 会引起重绘
         var scrollTop = doc.body.scrollTop;
 
-        if ((scrollTop + topToView) >= screenHeight) {
+        // console.log('auto: ', currentNode, boundingClientRect);
+
+        // 如果在首屏
+        if ((scrollTop + topToView) <= screenHeight) {
             return true;
         }
     }, function (src) {
@@ -413,13 +437,15 @@ function handlerAfterStableTimeFound() {
         _options.onTimeFound({
             lastedTime: targetInfo.finishedTime - window.performance.timing.navigationStart,
             finishedTime: targetInfo.finishedTime,
-            maxErrorTime: targetInfo.blankTime // 最大误差值
+            maxErrorTime: targetInfo.blankTime, // 最大误差值
+
+            xhrList: xhrStatusPool,
+            domUpdatePool: domUpdatePool
         });
     }
 }
 
 function overrideXhr() {
-    var xhrStatusPool = {};
     var xhrTimerStatusPool = {};
 
     var XhrProto = XMLHttpRequest.prototype;
