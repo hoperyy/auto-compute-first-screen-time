@@ -1,5 +1,3 @@
-**状态: 测试版**
-
 ## 这是什么
 
 自动计算首屏时间的小工具（beta）
@@ -51,6 +49,10 @@ require('auto-compute-first-screen-time')({
 // 页面其他代码
 // ...
 ```
+
+## 原理是什么
+
+详细介绍：https://github.com/hoperyy/blog/issues/102
 
 ## LICENSE
 
