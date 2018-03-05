@@ -84,7 +84,7 @@ function getMatchedTimeInfo(domUpdatePool) {
     // console.log('finalImages 长度: ', finalImages.length, domUpdatePool);
     // console.log('最后一次变动距离稳定时刻的时间: ', domUpdatePool[0].time - domUpdatePool[1].time);
 
-    var isBiggerArray = function (bigArr, smallArr) {
+    var isBiggerArray = function (bigArr, smallArr, testIndex) {
         for (var i = 0, len = smallArr.length; i < len; i++) {
             if (bigArr.indexOf(smallArr[i]) === -1) {
                 return false;
@@ -98,22 +98,34 @@ function getMatchedTimeInfo(domUpdatePool) {
     //     return null;
     // }
 
-    // 从最近的一次 dom 变化开始对比
-    for (var i = 1, len = domUpdatePool.length; i < len; i++) {
-        var item = domUpdatePool[i];
+    if (finalImages.length > 0) {
+        for (var i = 1, len = domUpdatePool.length; i < len; i++) {
+            var item = domUpdatePool[i];
 
-        // 如果最终状态的首屏有图片，则通过比较首屏图片数量来确定是否首屏加载完毕；否则直接使用最后一次渲染时的 dom（默认）
-        if (finalImages.length > 0) {
-            if (!isBiggerArray(item.images, finalImages)) {
+            // 如果最终状态的首屏有图片，则通过比较首屏图片数量来确定是否首屏加载完毕；否则直接使用最后一次渲染时的 dom（默认）
+            if (!isBiggerArray(item.images, finalImages, i)) {
                 break;
             }
         }
+
+        i--;
+
+        // i === 0 说明没有匹配的
+        targetInfo = domUpdatePool[i];
+    } else {
+        for (var i = 1, len = domUpdatePool.length; i < len; i++) {
+            var item = domUpdatePool[i];
+
+            // 如果稳定状态没有图片，选取最近一次 dom 变化的时刻为最终时刻
+            if (!item.isFromInternal) {
+                break;
+            }
+        }
+
+        targetInfo = domUpdatePool[i];
     }
-
-    i--;
-
-    // i === 0 说明没有匹配的
-    targetInfo = domUpdatePool[i];
+    
+    // console.log(domUpdatePool);
 
     return targetInfo;
 }
@@ -212,6 +224,7 @@ function recordDomInfo(param) {
                     imgDowloadTimePool[src] = new Date().getTime();
                 }
                 afterDownload(src);
+                // console.log('complete: ', src);
             } else {
                 img.onload = img.onerror = function () {
                     // 记录该图片加载完成的时间，以最早那次为准
@@ -393,7 +406,10 @@ function getImagesInFirstScreen() {
             return true;
         }
     }, function (src) {
-        imgList.push(src);
+        // 去重
+        if (imgList.indexOf(src) === -1) {
+            imgList.push(src);
+        }
     });
 
     return imgList;
@@ -403,7 +419,9 @@ function getImagesInFullPage() {
     var imgList = [];
 
     _queryImages(function () { }, function (src) {
-        imgList.push(src);
+        if (imgList.indexOf(src) === -1) {
+            imgList.push(src);
+        }
     });
 
     return imgList;
@@ -449,7 +467,7 @@ function overrideXhr() {
     var xhrTimerStatusPool = {};
 
     var XhrProto = XMLHttpRequest.prototype;
-    XhrProto.testFirstScreenSend = XhrProto.send;
+    XhrProto.owlTestFirstScreenSend = XhrProto.send;
 
     var isXhrStatusPoolEmpty = function () {
         for (var key in xhrStatusPool) {
@@ -567,7 +585,7 @@ function overrideXhr() {
             catchThisXhr.apply(this, arguments);
         }
 
-        return XhrProto.testFirstScreenSend.apply(this, [].slice.call(arguments));
+        return XhrProto.owlTestFirstScreenSend.apply(this, [].slice.call(arguments));
     };
 }
 
