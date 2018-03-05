@@ -52,6 +52,10 @@ require('auto-compute-first-screen-time')({
 // ...
 ```
 
+## Details
+
+https://github.com/hoperyy/blog/issues/102
+
 ## LICENSE
 
 BSD
