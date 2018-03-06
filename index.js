@@ -76,13 +76,9 @@ function getMatchedTimeInfo(domUpdatePool) {
     });
 
     // 获取当前时刻的 dom 信息，作为基准值
-    // console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 分界线 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
     var finalImages = domUpdatePool[0].images;
 
     var targetInfo;
-
-    // console.log('finalImages 长度: ', finalImages.length, domUpdatePool);
-    // console.log('最后一次变动距离稳定时刻的时间: ', domUpdatePool[0].time - domUpdatePool[1].time);
 
     var isBiggerArray = function (bigArr, smallArr, testIndex) {
         for (var i = 0, len = smallArr.length; i < len; i++) {
@@ -92,11 +88,6 @@ function getMatchedTimeInfo(domUpdatePool) {
         }
         return true;
     };
-
-    // 如果最近一次获取的 dom 变化和稳定状态的图片还是不符合，并且间隔超过了 300ms，则不执行上报
-    // if (domUpdatePool[0].blankTime >= 250 && !isBiggerArray(domUpdatePool[1].images, finalImages)) {
-    //     return null;
-    // }
 
     if (finalImages.length > 0) {
         for (var i = 1, len = domUpdatePool.length; i < len; i++) {
@@ -124,8 +115,6 @@ function getMatchedTimeInfo(domUpdatePool) {
 
         targetInfo = domUpdatePool[i];
     }
-    
-    // console.log(domUpdatePool);
 
     return targetInfo;
 }
@@ -224,7 +213,6 @@ function recordDomInfo(param) {
                     imgDowloadTimePool[src] = new Date().getTime();
                 }
                 afterDownload(src);
-                // console.log('complete: ', src);
             } else {
                 img.onload = img.onerror = function () {
                     // 记录该图片加载完成的时间，以最早那次为准
@@ -276,10 +264,7 @@ function genTimeRunner() {
                 return;
             }
 
-            // console.log('修正时间：', nextTime);
-
             timer = setTimeout(handler, nextTime);
-            // console.log(new Date().getTime() - (startTime + count * delay));
         };
         timer = setTimeout(handler, delay);
 
@@ -305,24 +290,11 @@ function observeDomChange() {
 
     var mutationIntervalCallback = function () {
         recordDomInfo({ isInterval: true });
-
-        // console.log('定时器回调执行时刻：', new Date().getTime() - timeDot, timeDot);
-
-        // console.log('本次轮询持续的时间：', new Date().getTime() - mutationIntervalStartTime);
-
-        // if (new Date().getTime() - mutationIntervalStartTime >= maxQueryTime) {
-        //     // 清除定时器
-        //     timeRunner.clearInterval();
-        // }
     };
 
     // 记录首屏 DOM 的变化
     mutationObserver = new MutationObserver(function () {
         recordDomInfo();
-
-        // timeDot = new Date().getTime();
-
-        // console.log('Mutation change', timeDot);
 
         mutationIntervalCount = 0;
         timeRunner.clearInterval();
@@ -399,8 +371,6 @@ function getImagesInFirstScreen() {
         var topToView = boundingClientRect.top; // getBoundingClientRect 会引起重绘
         var scrollTop = doc.body.scrollTop;
 
-        // console.log('auto: ', currentNode, boundingClientRect);
-
         // 如果在首屏
         if ((scrollTop + topToView) <= screenHeight) {
             return true;
@@ -467,7 +437,7 @@ function overrideXhr() {
     var xhrTimerStatusPool = {};
 
     var XhrProto = XMLHttpRequest.prototype;
-    XhrProto.owlTestFirstScreenSend = XhrProto.send;
+    XhrProto.testFirstScreenSend = XhrProto.send;
 
     var isXhrStatusPoolEmpty = function () {
         for (var key in xhrStatusPool) {
@@ -585,7 +555,7 @@ function overrideXhr() {
             catchThisXhr.apply(this, arguments);
         }
 
-        return XhrProto.owlTestFirstScreenSend.apply(this, [].slice.call(arguments));
+        return XhrProto.testFirstScreenSend.apply(this, [].slice.call(arguments));
     };
 }
 
