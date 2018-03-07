@@ -8,8 +8,17 @@ A tool for auto computing first screen time of one page.
 
 ## What's the defination of *first screen time* ?
 
-+   If there are images existing in first screen, the defination is: `the-time-at-which-all-images-in-first-screen-are-downloaded  -  window.performance.timing.navigationStart`
-+   If there is no image existing in first screen, the defination is: `the-time-at-which-dom-changes-no-more  -  window.performance.timing.navigationStart`
++   If there are images existing in first screen, the defination is: 
+
+    ```
+    the-time-at-which-all-images-in-first-screen-are-downloaded  -  window.performance.timing.navigationStart
+    ```
+
++   If there is no image existing in first screen, the defination is:
+
+    ```
+    the-time-at-which-dom-changes-no-more  -  window.performance.timing.navigationStart
+    ```
 
 ## Precision
 
