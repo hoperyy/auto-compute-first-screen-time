@@ -4,7 +4,7 @@
 
 ## What is this ?
 
-A tool for auto computing first screen time of one page.
+A tool for auto computing first screen time of one page with inaccuracy less than 200ms.
 
 ## What's the defination of *first screen time* ?
 
@@ -22,7 +22,7 @@ A tool for auto computing first screen time of one page.
 
 ## Precision
 
-the distance betwwn average tested time and real first screen time is less than 200ms (tested in wifi/fast 3G/slow 3G)
+the distance between average tested time and real first screen time is less than 200ms (tested in wifi/fast 3G/slow 3G)
 
 ## How To Use
 
