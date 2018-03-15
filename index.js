@@ -1,5 +1,5 @@
 /**
- * @description 自动计算首屏，和手动埋点相比，误差在 200ms 以内
+ * @description auto compute first screen time of one page with inaccuracy less than 200ms
  * @author 刘远洋 https://github.com/hoperyy
  * @date 2018/02/22
  */
