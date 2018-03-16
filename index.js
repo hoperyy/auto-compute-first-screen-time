@@ -501,7 +501,9 @@ function overrideXhr() {
                 }, _options.renderTimeAfterGettingData);
             }
 
-            oldReadyCallback.apply(this, arguments);
+            if (oldReadyCallback && oldReadyCallback.apply) {
+                oldReadyCallback.apply(this, arguments);
+            }
         };
     };
 
