@@ -418,7 +418,7 @@ function handlerAfterStableTimeFound() {
     }
 
     // 触发事件：所有异步请求已经发布完毕
-    allXhrResolved && _options.allXhrResolved(targetInfo.time);
+    onAllXhrResolved && _options.onAllXhrResolved(targetInfo.time);
 
     // 标记该变动时刻为目标时刻
     targetInfo.isTargetTime = true;
@@ -589,8 +589,8 @@ function mergeUserOptions(userOptions) {
             _options.renderTimeAfterGettingData = userOptions.renderTimeAfterGettingData;
         }
 
-        if (userOptions.allXhrResolved) {
-            _options.allXhrResolved = userOptions.allXhrResolved;
+        if (userOptions.onAllXhrResolved) {
+            _options.onAllXhrResolved = userOptions.onAllXhrResolved;
         }
     }
 }
