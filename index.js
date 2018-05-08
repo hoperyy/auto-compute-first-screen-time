@@ -418,7 +418,7 @@ function handlerAfterStableTimeFound() {
     }
 
     // 触发事件：所有异步请求已经发布完毕
-    onAllXhrResolved && _options.onAllXhrResolved(targetInfo.time);
+    _options.onAllXhrResolved && _options.onAllXhrResolved(targetInfo.time);
 
     // 标记该变动时刻为目标时刻
     targetInfo.isTargetTime = true;
