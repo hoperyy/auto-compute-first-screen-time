@@ -413,9 +413,12 @@ function handlerAfterStableTimeFound() {
     var targetInfo = getMatchedTimeInfo(domUpdatePool);
 
     if (!targetInfo) {
-        console.log('没有找到合适的上报点，不再上报');
+        console.log('[auto-compute-first-screen-time] no suitable time found.');
         return;
     }
+
+    // 触发事件：所有异步请求已经发布完毕
+    allXhrResolved && _options.allXhrResolved(targetInfo.time);
 
     // 标记该变动时刻为目标时刻
     targetInfo.isTargetTime = true;
@@ -584,6 +587,10 @@ function mergeUserOptions(userOptions) {
 
         if (userOptions.renderTimeAfterGettingData) {
             _options.renderTimeAfterGettingData = userOptions.renderTimeAfterGettingData;
+        }
+
+        if (userOptions.allXhrResolved) {
+            _options.allXhrResolved = userOptions.allXhrResolved;
         }
     }
 }
