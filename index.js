@@ -47,6 +47,7 @@ var _options = {
         // result.lastedTime: result.finishedTime - window.performance.timing.navigationStart 首屏持续的时间
         // result.maxErrorTime: targetInfo.blankTime // 最大误差值
     },
+    delay: 0,
     xhr: {
         limitedIn: [],
         exclude: [/(sockjs)|(socketjs)|(socket\.io)/]
@@ -566,9 +567,18 @@ function overrideXhr() {
 
 function mergeUserOptions(userOptions) {
     if (userOptions) {
+        if (userOptions.delay) {
+            _options.delay = userOptions.delay;
+        }
+
         if (userOptions.onTimeFound) {
             _options.onTimeFound = function () {
-                userOptions.onTimeFound.apply(this, arguments);
+                var _this = this;
+                var args = arguments;
+                var timer = setTimeout(function() {
+                    userOptions.onTimeFound.apply(_this, args);
+                    clearTimeout(timer);
+                }, _options.delay);
             };
         }
 
