@@ -49,7 +49,7 @@ require('auto-compute-first-screen-time')({
     onTimeFound: function (result) {
         /* 
          * result.finishedTime: The time at which first screen finished
-         * result.lastedTime: The time that first screen costs
+         * result.firstScreenTime: The time that first screen costs
          * result.maxErrorTime: The max error time than real time
          */
 
