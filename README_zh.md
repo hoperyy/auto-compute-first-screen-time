@@ -38,11 +38,11 @@ require('auto-compute-first-screen-time')({
     onTimeFound: function (result) {
         /*
          * result.finishedTime: 首屏完成的时刻（ms）
-         * result.lastedTime: 首屏花费的时间（ms）
+         * result.firstScreenTime: 首屏花费的时间（ms）
          * result.maxErrorTime: 最大误差时间（ms）
          */
 
-        // report(result.lastedTime)
+        // report(result.firstScreenTime)
     }
 });
 
