@@ -47,6 +47,7 @@ var _options = {
         // result.lastedTime: result.finishedTime - window.performance.timing.navigationStart 首屏持续的时间
         // result.maxErrorTime: targetInfo.blankTime // 最大误差值
     },
+    delay: 0,
     xhr: {
         limitedIn: [],
         exclude: [/(sockjs)|(socketjs)|(socket\.io)/]
@@ -188,8 +189,10 @@ function recordDomInfo(param) {
             // 如果图片加载完成时，发现该时刻就是目标时刻，则执行上报
             if (obj.isTargetTime) {
                 // 回调
+                var firstScreenTime = obj.finishedTime - window.performance.timing.navigationStart;
                 _options.onTimeFound({
-                    lastedTime: obj.finishedTime - window.performance.timing.navigationStart,
+                    lastedTime: firstScreenTime, // old api
+                    firstScreenTime: firstScreenTime, // new api
                     finishedTime: obj.finishedTime,
                     maxErrorTime: obj.blankTime, // 最大误差值
 
@@ -425,8 +428,10 @@ function handlerAfterStableTimeFound() {
 
     // 如果 target 时刻的图片已经加载完毕，则上报该信息中记录的完成时刻
     if (targetInfo.finishedTime !== -1) {
+        var firstScreenTime = targetInfo.finishedTime - window.performance.timing.navigationStart;
         _options.onTimeFound({
-            lastedTime: targetInfo.finishedTime - window.performance.timing.navigationStart,
+            lastedTime: firstScreenTime, // old api
+            firstScreenTime: firstScreenTime, // new api
             finishedTime: targetInfo.finishedTime,
             maxErrorTime: targetInfo.blankTime, // 最大误差值
 
@@ -566,9 +571,18 @@ function overrideXhr() {
 
 function mergeUserOptions(userOptions) {
     if (userOptions) {
+        if (userOptions.delay) {
+            _options.delay = userOptions.delay;
+        }
+
         if (userOptions.onTimeFound) {
             _options.onTimeFound = function () {
-                userOptions.onTimeFound.apply(this, arguments);
+                var _this = this;
+                var args = arguments;
+                var timer = setTimeout(function() {
+                    userOptions.onTimeFound.apply(_this, args);
+                    clearTimeout(timer);
+                }, _options.delay);
             };
         }
 
