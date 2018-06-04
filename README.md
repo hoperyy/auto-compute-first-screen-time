@@ -53,7 +53,7 @@ require('auto-compute-first-screen-time')({
          * result.maxErrorTime: The max error time than real time
          */
 
-        // report(result.lastedTime)
+        // report(result.firstScreenTime)
     }
 });
 
