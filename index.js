@@ -526,36 +526,47 @@ function overrideXhr() {
         return shouldCatch;
     }
 
+    var onSend = function(url) {
+        if (!isFirstXhrSent) {
+            isFirstXhrSent = true;
+            setupCatchingXhrTimer();
+        }
+
+        var poolName = 'request-' + url + '-' + new Date().getTime();
+        xhrStatusPool[poolName] = 'sent';
+        xhrTimerStatusPool[poolName] = 'start';
+
+        return {
+            poolName: poolName
+        }
+    };
+
+    var afterRequestReturn = function (poolName) {
+        // 标记这个请求完成
+        xhrStatusPool[poolName] = 'complete';
+
+        //  当前时刻
+        var returnTime = new Date().getTime();
+        // 从这个请求返回的时刻起，在较短的时间段内的请求也需要被监听
+        catchXhrTimePool.push([returnTime, returnTime + _options.renderTimeAfterGettingData]);
+
+        var timer = setTimeout(function () {
+            xhrTimerStatusPool[poolName] = 'stopped';
+            if (isCatchXhrTimeout && isXhrStatusPoolEmpty() && isXhrTimerPoolEmpty()) {
+                handlerAfterStableTimeFound();
+            }
+            clearTimeout(timer);
+        }, _options.renderTimeAfterGettingData);
+    };
+
     XhrProto.send = function () {
         if (shouldCatchThisXhr(this._http.url)) {
-            if (!isFirstXhrSent) {
-                isFirstXhrSent = true;
-                setupCatchingXhrTimer.apply(this, arguments);
-            }
-
-            var sendTime = new Date().getTime();
-            var poolName = 'request-' + this._http.url + '-' + sendTime;
-            xhrStatusPool[poolName] = 'sent';
-            xhrTimerStatusPool[poolName] = 'start';
+            var poolName = onSend(this._http.url).poolName;
 
             var oldReadyCallback = this.onreadystatechange;
             this.onreadystatechange = function () {
                 if (this.readyState === 4) {
-                    // 标记这个请求完成
-                    xhrStatusPool[poolName] = 'complete';
-
-                    //  当前时刻
-                    var returnTime = new Date().getTime();
-                    // 从这个请求返回的时刻起，在较短的时间段内的请求也需要被监听
-                    catchXhrTimePool.push([returnTime, returnTime + _options.renderTimeAfterGettingData]);
-
-                    var timer = setTimeout(function () {
-                        xhrTimerStatusPool[poolName] = 'stopped';
-                        if (isCatchXhrTimeout && isXhrStatusPoolEmpty() && isXhrTimerPoolEmpty()) {
-                            handlerAfterStableTimeFound();
-                        }
-                        clearTimeout(timer);
-                    }, _options.renderTimeAfterGettingData);
+                    afterRequestReturn(poolName);
                 }
 
                 if (oldReadyCallback && oldReadyCallback.apply) {
