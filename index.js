@@ -7,6 +7,9 @@
 // 脚本开始运行的时间，用于各种 log 等
 var scriptStartTime = new Date().getTime();
 
+// 复写 fetch
+// require('./rewriteFetch');
+
 // 扩展 MutationObserver 的兼容性
 require('mutationobserver-shim');
 
@@ -445,7 +448,7 @@ function overrideXhr() {
     var xhrTimerStatusPool = {};
 
     var XhrProto = XMLHttpRequest.prototype;
-    XhrProto.testFirstScreenSend = XhrProto.send;
+    XhrProto.autoComputeFirstScreenSend = XhrProto.send;
 
     var isXhrStatusPoolEmpty = function () {
         for (var key in xhrStatusPool) {
@@ -565,7 +568,7 @@ function overrideXhr() {
             catchThisXhr.apply(this, arguments);
         }
 
-        return XhrProto.testFirstScreenSend.apply(this, [].slice.call(arguments));
+        return XhrProto.autoComputeFirstScreenSend.apply(this, [].slice.call(arguments));
     };
 }
 
