@@ -8,7 +8,7 @@
 var scriptStartTime = new Date().getTime();
 
 // 复写 fetch
-// require('./rewriteFetch');
+require('./rewriteFetch');
 
 // 扩展 MutationObserver 的兼容性
 require('mutationobserver-shim');
@@ -486,38 +486,6 @@ function overrideXhr() {
         }, _options.firstScreenXhrLastedTime);
     };
 
-    var catchThisXhr = function () {
-        var sendTime = new Date().getTime();
-        var poolName = 'request-' + this._http.url + '-' + sendTime;
-        xhrStatusPool[poolName] = 'sent';
-        xhrTimerStatusPool[poolName] = 'start';
-
-        var oldReadyCallback = this.onreadystatechange;
-        this.onreadystatechange = function () {
-            if (this.readyState === 4) {
-                // 标记这个请求完成
-                xhrStatusPool[poolName] = 'complete';
-
-                //  当前时刻
-                var returnTime = new Date().getTime();
-                // 从这个请求返回的时刻起，在较短的时间段内的请求也需要被监听
-                catchXhrTimePool.push([returnTime, returnTime + _options.renderTimeAfterGettingData]);
-
-                var timer = setTimeout(function () {
-                    xhrTimerStatusPool[poolName] = 'stopped';
-                    if (isCatchXhrTimeout && isXhrStatusPoolEmpty() && isXhrTimerPoolEmpty()) {
-                        handlerAfterStableTimeFound();
-                    }
-                    clearTimeout(timer);
-                }, _options.renderTimeAfterGettingData);
-            }
-
-            if (oldReadyCallback && oldReadyCallback.apply) {
-                oldReadyCallback.apply(this, arguments);
-            }
-        };
-    };
-
     var shouldCatchThisXhr = function (url) {
         // 默认抓取该请求到队列，认为其可能影响首屏
         var shouldCatch = true;
@@ -565,7 +533,35 @@ function overrideXhr() {
                 setupCatchingXhrTimer.apply(this, arguments);
             }
 
-            catchThisXhr.apply(this, arguments);
+            var sendTime = new Date().getTime();
+            var poolName = 'request-' + this._http.url + '-' + sendTime;
+            xhrStatusPool[poolName] = 'sent';
+            xhrTimerStatusPool[poolName] = 'start';
+
+            var oldReadyCallback = this.onreadystatechange;
+            this.onreadystatechange = function () {
+                if (this.readyState === 4) {
+                    // 标记这个请求完成
+                    xhrStatusPool[poolName] = 'complete';
+
+                    //  当前时刻
+                    var returnTime = new Date().getTime();
+                    // 从这个请求返回的时刻起，在较短的时间段内的请求也需要被监听
+                    catchXhrTimePool.push([returnTime, returnTime + _options.renderTimeAfterGettingData]);
+
+                    var timer = setTimeout(function () {
+                        xhrTimerStatusPool[poolName] = 'stopped';
+                        if (isCatchXhrTimeout && isXhrStatusPoolEmpty() && isXhrTimerPoolEmpty()) {
+                            handlerAfterStableTimeFound();
+                        }
+                        clearTimeout(timer);
+                    }, _options.renderTimeAfterGettingData);
+                }
+
+                if (oldReadyCallback && oldReadyCallback.apply) {
+                    oldReadyCallback.apply(this, arguments);
+                }
+            };
         }
 
         return XhrProto.autoComputeFirstScreenSend.apply(this, [].slice.call(arguments));
