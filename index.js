@@ -4,6 +4,9 @@
  * @date 2018/02/22
  */
 
+// window.fetch = null;
+
+
 // 脚本开始运行的时间，用于各种 log 等
 var scriptStartTime = new Date().getTime();
 
@@ -614,16 +617,25 @@ function overrideAsyncRequest() {
         } else {
             Object.defineProperty(window, 'fetch', {
                 set: function (value) {
-                    oldFetch = value;
+                    if (value !== null) {
+                        console.log('fetch 被 set');
+                        oldFetch = value;
+                    }
                 },
                 get: function () {
-                    return newFetch;
-                }
-            })
+                    console.log('get fetch');
+                    if (oldFetch) {
+                        return newFetch;
+                    } else {
+                        return null;
+                    }
+                },
+            });
         }
     };
 
-    // 顺序最好是先覆盖 fetch，后覆盖 xhr，因为 fetch 有可能被 xhr 模拟
+
+    // overide fetch first, then xhr, because fetch could be mocked by xhr
     overrideFetch(onRequestSend, afterRequestReturn);
 
     overideXhr(onRequestSend, afterRequestReturn);
