@@ -64,8 +64,8 @@ var _options = {
     // 找到首屏时间后，延迟上报的时间，默认为 500ms，防止页面出现需要跳转到登录导致性能数据错误的问题
     delayReport: 500,
 
-    // 页面所有脚本运行完毕后，检测首个异步请求发出去的时间段，默认 2s，如果 2s 内没有异步请求发出，则认为该页面没有异步请求，为静态页面，那么 2s 这个时刻页面首屏已经处于稳定状态了
-    delayStaticPage: 2000,
+    // 页面所有脚本运行完毕后，检测首个异步请求发出去的时间段，默认 500ms，如果该时间段内没有异步请求发出，则认为该页面没有异步请求，为静态页面，那么最后的时刻页面首屏已经处于稳定状态了
+    delayStaticPage: 500,
 };
 
 function _parseUrl(url) {
@@ -385,7 +385,7 @@ function insertTestTimeScript() {
         // 如果脚本运行完毕，页面还没有 XHR 请求，则尝试上报
         var timer = setTimeout(function() {
             if (!isFirstXhrSent) {
-                console.log('no xhr request found, report as static page');
+                console.log('no async request found, report as static page');
                 _processOnStableTimeFound();
             }
 
@@ -586,8 +586,9 @@ function overrideAsyncRequest() {
                     url = args[0].url;
                 }
 
-                if (!url) {
-                    console.warn('[auto-compute-first-screen-time] no url param found in "fetch(...)"');
+                // when failed to get fetch url, skip report
+                if (url) {
+                    // console.warn('[auto-compute-first-screen-time] no url param found in "fetch(...)"');
                     poolName = onRequestSend(url, 'fetch').poolName;
                 }
 
@@ -623,7 +624,7 @@ function overrideAsyncRequest() {
     // 顺序最好是先覆盖 fetch，后覆盖 xhr，因为 fetch 有可能被 xhr 模拟
     overrideFetch(onRequestSend, afterRequestReturn);
 
-    // overideXhr(onRequestSend, afterRequestReturn);
+    overideXhr(onRequestSend, afterRequestReturn);
 }
 
 function mergeUserOptions(userOptions) {
