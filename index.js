@@ -4,8 +4,14 @@
  * @date 2018/02/22
  */
 
+// window.fetch = null;
+
+
 // 脚本开始运行的时间，用于各种 log 等
 var scriptStartTime = new Date().getTime();
+
+// 复写 fetch
+// require('./rewriteFetch');
 
 // 扩展 MutationObserver 的兼容性
 require('mutationobserver-shim');
@@ -13,7 +19,7 @@ require('mutationobserver-shim');
 var win = window;
 var doc = win.document;
 
-var timeRunner = genTimeRunner();
+var timeRunner = _generateTimeRunner();
 
 var MutationObserver = win.MutationObserver;
 
@@ -47,7 +53,6 @@ var _options = {
         // result.lastedTime: result.finishedTime - window.performance.timing.navigationStart 首屏持续的时间
         // result.maxErrorTime: targetInfo.blankTime // 最大误差值
     },
-    delay: 0,
     xhr: {
         limitedIn: [],
         exclude: [/(sockjs)|(socketjs)|(socket\.io)/]
@@ -57,16 +62,22 @@ var _options = {
     firstScreenXhrLastedTime: 1000,
 
     // 获取数据后，认为渲染 dom 的时长
-    renderTimeAfterGettingData: 300
+    renderTimeAfterGettingData: 300,
+
+    // 找到首屏时间后，延迟上报的时间，默认为 500ms，防止页面出现需要跳转到登录导致性能数据错误的问题
+    delayReport: 500,
+
+    // 页面所有脚本运行完毕后，检测首个异步请求发出去的时间段，默认 500ms，如果该时间段内没有异步请求发出，则认为该页面没有异步请求，为静态页面，那么最后的时刻页面首屏已经处于稳定状态了
+    delayStaticPage: 500,
 };
 
-function parseUrl(url) {
+function _parseUrl(url) {
     var anchor = document.createElement('a');
     anchor.href = url;
     return anchor;
 }
 
-function getMatchedTimeInfo(domUpdatePool) {
+function _getMatchedTimeInfo(domUpdatePool) {
     // 倒序
     domUpdatePool.sort(function (a, b) {
         if (a.time < b.time) {
@@ -120,32 +131,7 @@ function getMatchedTimeInfo(domUpdatePool) {
     return targetInfo;
 }
 
-// 插入脚本，用于获取脚本运行完成时间，这个时间用于获取当前页面是否有异步请求发出
-function insertTestTimeScript() {
-    var insertedScript = null;
-    var SCRIPT_FINISHED_FUNCTION_NAME = 'FIRST_SCREEN_SCRIPT_FINISHED_TIME_' + scriptStartTime;
-
-    window[SCRIPT_FINISHED_FUNCTION_NAME] = function () {
-        // 如果脚本运行完毕，页面还没有 XHR 请求，则尝试上报
-        if (!isFirstXhrSent) {
-            handlerAfterStableTimeFound();
-        }
-
-        // 清理
-        document.body.removeChild(insertedScript);
-        insertedScript = null;
-        window[SCRIPT_FINISHED_FUNCTION_NAME] = null;
-    };
-
-    document.addEventListener('DOMContentLoaded', function (event) {
-        insertedScript = document.createElement('script');
-        insertedScript.innerHTML = 'window.' + SCRIPT_FINISHED_FUNCTION_NAME + ' && window.' + SCRIPT_FINISHED_FUNCTION_NAME + '()';
-        insertedScript.async = false;
-        document.body.appendChild(insertedScript);
-    });
-}
-
-function getLastImgDownloadTime(images) {
+function _getLastImgDownloadTime(images) {
     var timeArr = [];
 
     images.forEach(function (src) {
@@ -164,11 +150,10 @@ function getLastImgDownloadTime(images) {
     return timeArr[0];
 }
 
-function recordDomInfo(param) {
-    // 记录当前时刻的 DOM 信息
+// 记录运行该方法时刻的 dom 信息，主要是 images；运行时机为每次 mutationObserver 回调触发或定时器触发
+function _recordDomInfo(param) {
     var nowTime = new Date().getTime();
-    var images = getImagesInFirstScreen();
-    // var images = getImagesInFullPage();
+    var images = _getImagesInFirstScreen();
     var obj = {
         isFromInternal: (param && param.isInterval) ? true : false,
         isTargetTime: false,
@@ -184,7 +169,7 @@ function recordDomInfo(param) {
 
         if (imgIndex === images.length) {
             // 获取所有图片中加载时间最迟的时刻，作为 finishedTime
-            obj.finishedTime = getLastImgDownloadTime(images);
+            obj.finishedTime = _getLastImgDownloadTime(images);
 
             // 如果图片加载完成时，发现该时刻就是目标时刻，则执行上报
             if (obj.isTargetTime) {
@@ -238,7 +223,7 @@ function recordDomInfo(param) {
     lastDomUpdateTime = new Date().getTime();
 }
 
-function genTimeRunner() {
+function _generateTimeRunner() {
     var timer = null;
     var shouldBreak = false;
 
@@ -280,41 +265,6 @@ function genTimeRunner() {
     };
 }
 
-function observeDomChange() {
-    // 虽然定时器的间隔设置为200，但实际运行来看，间隔的时机仍然有较大误差
-    var mutationIntervalDelay = 200;
-
-    // 一次轮询任务持续的最长时间
-    var maxQueryTime = 3000;
-
-    // var timeDot = new Date().getTime();
-
-    var mutationIntervalStartTime = new Date().getTime();
-
-    var mutationIntervalCallback = function () {
-        recordDomInfo({ isInterval: true });
-    };
-
-    // 记录首屏 DOM 的变化
-    mutationObserver = new MutationObserver(function () {
-        recordDomInfo();
-
-        mutationIntervalCount = 0;
-        timeRunner.clearInterval();
-
-        // 每次浏览器检测到的 dom 变化后，启动轮询定时器，但轮询次数有上限
-        mutationIntervalStartTime = new Date().getTime();
-        timeRunner.setInterval(mutationIntervalCallback, mutationIntervalDelay);
-    });
-    mutationObserver.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
-
-    // 触发回调前，先记录初始时刻的 dom 信息
-    recordDomInfo();
-}
-
 function _queryImages(isMatch, success) {
     var screenHeight = win.innerHeight;
 
@@ -347,7 +297,7 @@ function _queryImages(isMatch, success) {
             src = match && match[1];
         }
 
-        var protocol = parseUrl(src).protocol;
+        var protocol = _parseUrl(src).protocol;
         if (src && protocol && protocol.indexOf('http') === 0) {
             success(src);
         }
@@ -356,7 +306,7 @@ function _queryImages(isMatch, success) {
     }
 }
 
-function getImagesInFirstScreen() {
+function _getImagesInFirstScreen() {
     var screenHeight = win.innerHeight;
 
     var imgList = [];
@@ -388,19 +338,7 @@ function getImagesInFirstScreen() {
     return imgList;
 }
 
-function getImagesInFullPage() {
-    var imgList = [];
-
-    _queryImages(function () { }, function (src) {
-        if (imgList.indexOf(src) === -1) {
-            imgList.push(src);
-        }
-    });
-
-    return imgList;
-}
-
-function handlerAfterStableTimeFound() {
+function _processOnStableTimeFound() {
     if (hasReported) {
         return;
     }
@@ -410,10 +348,10 @@ function handlerAfterStableTimeFound() {
     timeRunner.clearInterval();
 
     // 记录当前时刻
-    recordDomInfo();
+    _recordDomInfo();
 
     // 找到离稳定状态最近的渲染变动时刻
-    var targetInfo = getMatchedTimeInfo(domUpdatePool);
+    var targetInfo = _getMatchedTimeInfo(domUpdatePool);
 
     if (!targetInfo) {
         console.log('[auto-compute-first-screen-time] no suitable time found.');
@@ -441,13 +379,70 @@ function handlerAfterStableTimeFound() {
     }
 }
 
-function overrideXhr() {
-    var xhrTimerStatusPool = {};
+// 插入脚本，用于获取脚本运行完成时间，这个时间用于获取当前页面是否有异步请求发出
+function insertTestTimeScript() {
+    var insertedScript = null;
+    var SCRIPT_FINISHED_FUNCTION_NAME = 'FIRST_SCREEN_SCRIPT_FINISHED_TIME_' + scriptStartTime;
 
-    var XhrProto = XMLHttpRequest.prototype;
-    XhrProto.testFirstScreenSend = XhrProto.send;
+    window[SCRIPT_FINISHED_FUNCTION_NAME] = function () {
+        // 如果脚本运行完毕，页面还没有 XHR 请求，则尝试上报
+        var timer = setTimeout(function() {
+            if (!isFirstXhrSent) {
+                console.log('no async request found, report as static page');
+                _processOnStableTimeFound();
+            }
 
-    var isXhrStatusPoolEmpty = function () {
+            // clear
+            document.body.removeChild(insertedScript);
+            insertedScript = null;
+            window[SCRIPT_FINISHED_FUNCTION_NAME] = null;
+            clearTimeout(timer);
+        }, _options.delayStaticPage);
+    };
+
+    document.addEventListener('DOMContentLoaded', function (event) {
+        insertedScript = document.createElement('script');
+        insertedScript.innerHTML = 'window.' + SCRIPT_FINISHED_FUNCTION_NAME + ' && window.' + SCRIPT_FINISHED_FUNCTION_NAME + '()';
+        insertedScript.async = false;
+        document.body.appendChild(insertedScript);
+    });
+}
+
+// 监听 dom 变化，脚本运行时就开始
+function observeDomChange() {
+    // 虽然定时器的间隔设置为200，但实际运行来看，间隔的时机仍然有较大误差
+    var mutationIntervalDelay = 200;
+
+    var mutationIntervalStartTime = new Date().getTime();
+
+    var mutationIntervalCallback = function () {
+        _recordDomInfo({ isInterval: true });
+    };
+
+    // 记录首屏 DOM 的变化
+    mutationObserver = new MutationObserver(function () {
+        _recordDomInfo();
+
+        mutationIntervalCount = 0;
+        timeRunner.clearInterval();
+
+        // 每次浏览器检测到的 dom 变化后，启动轮询定时器，但轮询次数有上限
+        mutationIntervalStartTime = new Date().getTime();
+        timeRunner.setInterval(mutationIntervalCallback, mutationIntervalDelay);
+    });
+    mutationObserver.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
+    // 触发回调前，先记录初始时刻的 dom 信息
+    _recordDomInfo();
+}
+
+function overrideAsyncRequest() {
+    var asyncRequestTimerStatusPool = {};
+
+    var isAsyncRequestStatusPoolEmpty = function () {
         for (var key in xhrStatusPool) {
             if (key.indexOf('request-') !== -1 && xhrStatusPool[key] !== 'complete') {
                 return false;
@@ -457,9 +452,9 @@ function overrideXhr() {
         return true;
     };
 
-    var isXhrTimerPoolEmpty = function () {
-        for (var key in xhrTimerStatusPool) {
-            if (key.indexOf('request-') !== -1 && xhrTimerStatusPool[key] !== 'stopped') {
+    var isAsyncRequestTimerPoolEmpty = function () {
+        for (var key in asyncRequestTimerStatusPool) {
+            if (key.indexOf('request-') !== -1 && asyncRequestTimerStatusPool[key] !== 'stopped') {
                 return false;
             }
         }
@@ -469,53 +464,21 @@ function overrideXhr() {
 
     // 标志是否在获取 XHR 请求的时间区间内
     var isCatchXhrTimeout = false;
-    // 如果是第一次抓取到 XHR 请求，则开始定时器，持续时间 FIRST_SCREEN_XHR_LASTED_TIME，获取在此期间内的所有 XHR 请求
-    var setupCatchingXhrTimer = function () {
+    // 如果是第一次抓取到异步请求，则开始定时器，持续时间 FIRST_SCREEN_XHR_LASTED_TIME，获取在此期间内的所有 XHR 请求
+    var setupCatchingAsyncRequestTimer = function () {
         var timer = setTimeout(function () {
             isCatchXhrTimeout = true;
 
             // 如果时间已到，并且请求池内没有未返回的请求了，说明窗口期内的请求均已返回完毕，该时刻为首屏稳定状态，执行相关函数
-            if (isXhrStatusPoolEmpty() && isXhrTimerPoolEmpty()) {
-                handlerAfterStableTimeFound();
+            if (isAsyncRequestStatusPoolEmpty() && isAsyncRequestTimerPoolEmpty()) {
+                _processOnStableTimeFound();
             }
 
             clearTimeout(timer);
         }, _options.firstScreenXhrLastedTime);
     };
 
-    var catchThisXhr = function () {
-        var sendTime = new Date().getTime();
-        var poolName = 'request-' + this._http.url + '-' + sendTime;
-        xhrStatusPool[poolName] = 'sent';
-        xhrTimerStatusPool[poolName] = 'start';
-
-        var oldReadyCallback = this.onreadystatechange;
-        this.onreadystatechange = function () {
-            if (this.readyState === 4) {
-                // 标记这个请求完成
-                xhrStatusPool[poolName] = 'complete';
-
-                //  当前时刻
-                var returnTime = new Date().getTime();
-                // 从这个请求返回的时刻起，在较短的时间段内的请求也需要被监听
-                catchXhrTimePool.push([returnTime, returnTime + _options.renderTimeAfterGettingData]);
-
-                var timer = setTimeout(function () {
-                    xhrTimerStatusPool[poolName] = 'stopped';
-                    if (isCatchXhrTimeout && isXhrStatusPoolEmpty() && isXhrTimerPoolEmpty()) {
-                        handlerAfterStableTimeFound();
-                    }
-                    clearTimeout(timer);
-                }, _options.renderTimeAfterGettingData);
-            }
-
-            if (oldReadyCallback && oldReadyCallback.apply) {
-                oldReadyCallback.apply(this, arguments);
-            }
-        };
-    };
-
-    var shouldCatchThisXhr = function (url) {
+    var shouldCatchThisAsyncRequest = function (url) {
         // 默认抓取该请求到队列，认为其可能影响首屏
         var shouldCatch = true;
 
@@ -555,34 +518,149 @@ function overrideXhr() {
         return shouldCatch;
     }
 
-    XhrProto.send = function () {
-        if (shouldCatchThisXhr(this._http.url)) {
-            if (!isFirstXhrSent) {
-                isFirstXhrSent = true;
-                setupCatchingXhrTimer.apply(this, arguments);
-            }
-
-            catchThisXhr.apply(this, arguments);
+    var onRequestSend = function(url, type) {
+        if (!isFirstXhrSent) {
+            isFirstXhrSent = true;
+            setupCatchingAsyncRequestTimer();
         }
 
-        return XhrProto.testFirstScreenSend.apply(this, [].slice.call(arguments));
+        var poolName = type + '-request-' + url + '-' + new Date().getTime();
+        xhrStatusPool[poolName] = 'sent';
+        asyncRequestTimerStatusPool[poolName] = 'start';
+
+        return {
+            poolName: poolName
+        }
     };
+
+    var afterRequestReturn = function (poolName) {
+        // 标记这个请求完成
+        xhrStatusPool[poolName] = 'complete';
+
+        //  当前时刻
+        var returnTime = new Date().getTime();
+        // 从这个请求返回的时刻起，在较短的时间段内的请求也需要被监听
+        catchXhrTimePool.push([returnTime, returnTime + _options.renderTimeAfterGettingData]);
+
+        var timer = setTimeout(function () {
+            asyncRequestTimerStatusPool[poolName] = 'stopped';
+            if (isCatchXhrTimeout && isAsyncRequestStatusPoolEmpty() && isAsyncRequestTimerPoolEmpty()) {
+                _processOnStableTimeFound();
+            }
+            clearTimeout(timer);
+        }, _options.renderTimeAfterGettingData);
+    };
+
+    var overideXhr = function (onRequestSend, afterRequestReturn) {
+        var XhrProto = XMLHttpRequest.prototype;
+        var oldXhrSend = XhrProto.send;
+        XhrProto.send = function () {
+            if (shouldCatchThisAsyncRequest(this._http.url)) {
+                var poolName = onRequestSend(this._http.url, 'xhr').poolName;
+
+                var oldReadyCallback = this.onreadystatechange;
+                this.onreadystatechange = function () {
+                    if (this.readyState === 4) {
+                        afterRequestReturn(poolName);
+                    }
+
+                    if (oldReadyCallback && oldReadyCallback.apply) {
+                        oldReadyCallback.apply(this, arguments);
+                    }
+                };
+            }
+
+            return oldXhrSend.apply(this, [].slice.call(arguments));
+        };
+    };
+
+    var overrideFetch = function (onRequestSend, afterRequestReturn) {
+        var oldFetch;
+        var newFetch = function () {
+            var _this = this;
+            var args = arguments;
+
+            // 当 fetch 已被支持，说明也支持 Promise 了，可以放心地实用 Promise，不用考虑兼容性
+            return new Promise(function (resolve, reject) {
+                var url;
+                var poolName;
+
+                if (typeof args[0] === 'string') {
+                    url = args[0];
+                } else if (typeof args[0] === 'object') { // Request Object
+                    url = args[0].url;
+                }
+
+                // when failed to get fetch url, skip report
+                if (url) {
+                    // console.warn('[auto-compute-first-screen-time] no url param found in "fetch(...)"');
+                    poolName = onRequestSend(url, 'fetch').poolName;
+                }
+
+                oldFetch.apply(_this, args).then(function (response) {
+                    if (poolName) {
+                        afterRequestReturn(poolName);
+                    }
+                    resolve(response);
+                }).catch(function (err) {
+                    if (poolName) {
+                        afterRequestReturn(poolName);
+                    }
+                    reject(err);
+                });
+            })
+        };
+
+        if (window.fetch) {
+            oldFetch = window.fetch;
+            window.fetch = newFetch;
+        } else {
+            Object.defineProperty(window, 'fetch', {
+                set: function (value) {
+                    if (value !== null) {
+                        console.log('fetch 被 set');
+                        oldFetch = value;
+                    }
+                },
+                get: function () {
+                    console.log('get fetch');
+                    if (oldFetch) {
+                        return newFetch;
+                    } else {
+                        return null;
+                    }
+                },
+            });
+        }
+    };
+
+
+    // overide fetch first, then xhr, because fetch could be mocked by xhr
+    overrideFetch(onRequestSend, afterRequestReturn);
+
+    overideXhr(onRequestSend, afterRequestReturn);
 }
 
 function mergeUserOptions(userOptions) {
     if (userOptions) {
-        if (userOptions.delay) {
-            _options.delay = userOptions.delay;
+        if (userOptions.delayReport) {
+            _options.delayReport = userOptions.delayReport;
+        }
+
+        if (userOptions.delayStaticPage) {
+            _options.delayStaticPage = userOptions.delayStaticPage;
         }
 
         if (userOptions.onTimeFound) {
             _options.onTimeFound = function () {
                 var _this = this;
                 var args = arguments;
+
+                // delay a piece of time for reporting
                 var timer = setTimeout(function() {
                     userOptions.onTimeFound.apply(_this, args);
                     clearTimeout(timer);
-                }, _options.delay);
+                }, _options.delayReport);
             };
         }
 
@@ -613,5 +691,5 @@ module.exports = function (userOptions) {
     mergeUserOptions(userOptions);
     insertTestTimeScript();
     observeDomChange();
-    overrideXhr();
+    overrideAsyncRequest();
 };
