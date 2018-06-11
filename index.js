@@ -576,6 +576,8 @@ function overrideAsyncRequest() {
         var newFetch = function () {
             var _this = this;
             var args = arguments;
+
+            // 当 fetch 已被支持，说明也支持 Promise 了，可以放心地实用 Promise，不用考虑兼容性
             return new Promise(function (resolve, reject) {
                 var url;
                 var poolName;
