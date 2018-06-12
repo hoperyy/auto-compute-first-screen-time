@@ -29,22 +29,22 @@ var mutationObserver = null;
 // 是否已经上报的标志
 var hasReported = false;
 
-// 是否抓取到过 XHR 请求的标志位
-var isFirstXhrSent = false;
+// 是否抓取过请求的标志位
+var isFirstRequestSent = false;
 
 // 记录 Mutation 回调时的 dom 信息
-var domUpdatePool = [];
+var domUpdateList = [];
 
 // 可以抓取请求的时间窗口队列
-var catchXhrTimePool = [];
+var catchRequestTimeSections = [];
 
 // 记录图片加载完成的时刻（唯一）
-var imgDowloadTimePool = {};
+var imgDowloadTimeMap = {};
 
 // 用于记录两次 mutationObserver 回调触发的时间间隔
 var lastDomUpdateTime;
 
-var xhrStatusPool = {};
+var requestDetails = {};
 
 // 一些可配置项，下面是默认值
 var _options = {
@@ -58,17 +58,14 @@ var _options = {
         exclude: [/(sockjs)|(socketjs)|(socket\.io)/]
     },
 
-    // 从第一个 XHR 请求发出，到可以认为所有影响首屏的数据请求都已发出的时间段
-    firstScreenXhrLastedTime: 1000,
-
     // 获取数据后，认为渲染 dom 的时长
     renderTimeAfterGettingData: 300,
 
     // 找到首屏时间后，延迟上报的时间，默认为 500ms，防止页面出现需要跳转到登录导致性能数据错误的问题
     delayReport: 500,
 
-    // 页面所有脚本运行完毕后，检测首个异步请求发出去的时间段，默认 500ms，如果该时间段内没有异步请求发出，则认为该页面没有异步请求，为静态页面，那么最后的时刻页面首屏已经处于稳定状态了
-    delayStaticPage: 500,
+    // 检测是否是纯静态页面（没有异步请求）时，如果所有脚本运行完还没有发现异步请求，再延时当前
+    watingTimeWhenDefineStaticPage: 500,
 };
 
 function _parseUrl(url) {
@@ -77,9 +74,9 @@ function _parseUrl(url) {
     return anchor;
 }
 
-function _getMatchedTimeInfo(domUpdatePool) {
+function _getMatchedTimeInfo(domUpdateList) {
     // 倒序
-    domUpdatePool.sort(function (a, b) {
+    domUpdateList.sort(function (a, b) {
         if (a.time < b.time) {
             return 1;
         } else {
@@ -88,7 +85,7 @@ function _getMatchedTimeInfo(domUpdatePool) {
     });
 
     // 获取当前时刻的 dom 信息，作为基准值
-    var finalImages = domUpdatePool[0].images;
+    var finalImages = domUpdateList[0].images;
 
     var targetInfo;
 
@@ -102,8 +99,8 @@ function _getMatchedTimeInfo(domUpdatePool) {
     };
 
     if (finalImages.length > 0) {
-        for (var i = 1, len = domUpdatePool.length; i < len; i++) {
-            var item = domUpdatePool[i];
+        for (var i = 1, len = domUpdateList.length; i < len; i++) {
+            var item = domUpdateList[i];
 
             // 如果最终状态的首屏有图片，则通过比较首屏图片数量来确定是否首屏加载完毕；否则直接使用最后一次渲染时的 dom（默认）
             if (!isBiggerArray(item.images, finalImages, i)) {
@@ -114,10 +111,10 @@ function _getMatchedTimeInfo(domUpdatePool) {
         i--;
 
         // i === 0 说明没有匹配的
-        targetInfo = domUpdatePool[i];
+        targetInfo = domUpdateList[i];
     } else {
-        for (var i = 1, len = domUpdatePool.length; i < len; i++) {
-            var item = domUpdatePool[i];
+        for (var i = 1, len = domUpdateList.length; i < len; i++) {
+            var item = domUpdateList[i];
 
             // 如果稳定状态没有图片，选取最近一次 dom 变化的时刻为最终时刻
             if (!item.isFromInternal) {
@@ -125,7 +122,7 @@ function _getMatchedTimeInfo(domUpdatePool) {
             }
         }
 
-        targetInfo = domUpdatePool[i];
+        targetInfo = domUpdateList[i];
     }
 
     return targetInfo;
@@ -135,7 +132,7 @@ function _getLastImgDownloadTime(images) {
     var timeArr = [];
 
     images.forEach(function (src) {
-        timeArr.push(imgDowloadTimePool[src]);
+        timeArr.push(imgDowloadTimeMap[src]);
     });
 
     // 倒序
@@ -181,15 +178,16 @@ function _recordDomInfo(param) {
                     finishedTime: obj.finishedTime,
                     maxErrorTime: obj.blankTime, // 最大误差值
 
-                    xhrList: xhrStatusPool,
-                    domUpdatePool: domUpdatePool
+                    xhrList: requestDetails, // old api
+                    requestDetails: requestDetails, // new api
+                    domUpdateList: domUpdateList
                 });
             }
         }
     };
 
     images.forEach(function (src) {
-        if (imgDowloadTimePool[src]) {
+        if (imgDowloadTimeMap[src]) {
             afterDownload(src);
         } else {
             var img = new Image();
@@ -197,15 +195,15 @@ function _recordDomInfo(param) {
 
             if (img.complete) {
                 // 记录该图片加载完成的时间，以最早那次为准
-                if (!imgDowloadTimePool[src]) {
-                    imgDowloadTimePool[src] = new Date().getTime();
+                if (!imgDowloadTimeMap[src]) {
+                    imgDowloadTimeMap[src] = new Date().getTime();
                 }
                 afterDownload(src);
             } else {
                 img.onload = img.onerror = function () {
                     // 记录该图片加载完成的时间，以最早那次为准
-                    if (!imgDowloadTimePool[src]) {
-                        imgDowloadTimePool[src] = new Date().getTime();
+                    if (!imgDowloadTimeMap[src]) {
+                        imgDowloadTimeMap[src] = new Date().getTime();
                     }
                     afterDownload(src);
                 };
@@ -218,7 +216,7 @@ function _recordDomInfo(param) {
         obj.finishedTime = nowTime;
     }
 
-    domUpdatePool.push(obj);
+    domUpdateList.push(obj);
 
     lastDomUpdateTime = new Date().getTime();
 }
@@ -351,7 +349,7 @@ function _processOnStableTimeFound() {
     _recordDomInfo();
 
     // 找到离稳定状态最近的渲染变动时刻
-    var targetInfo = _getMatchedTimeInfo(domUpdatePool);
+    var targetInfo = _getMatchedTimeInfo(domUpdateList);
 
     if (!targetInfo) {
         console.log('[auto-compute-first-screen-time] no suitable time found.');
@@ -373,8 +371,8 @@ function _processOnStableTimeFound() {
             finishedTime: targetInfo.finishedTime,
             maxErrorTime: targetInfo.blankTime, // 最大误差值
 
-            xhrList: xhrStatusPool,
-            domUpdatePool: domUpdatePool
+            xhrList: requestDetails,
+            domUpdateList: domUpdateList
         });
     }
 }
@@ -385,10 +383,9 @@ function insertTestTimeScript() {
     var SCRIPT_FINISHED_FUNCTION_NAME = 'FIRST_SCREEN_SCRIPT_FINISHED_TIME_' + scriptStartTime;
 
     window[SCRIPT_FINISHED_FUNCTION_NAME] = function () {
-        // 如果脚本运行完毕，页面还没有 XHR 请求，则尝试上报
+        // 如果脚本运行完毕，延时一段时间后，页面还没有发出异步请求，则认为该时刻为稳定时刻，尝试上报
         var timer = setTimeout(function() {
-            if (!isFirstXhrSent) {
-                console.log('no async request found, report as static page');
+            if (!isFirstRequestSent) {
                 _processOnStableTimeFound();
             }
 
@@ -397,7 +394,7 @@ function insertTestTimeScript() {
             insertedScript = null;
             window[SCRIPT_FINISHED_FUNCTION_NAME] = null;
             clearTimeout(timer);
-        }, _options.delayStaticPage);
+        }, _options.watingTimeWhenDefineStaticPage);
     };
 
     document.addEventListener('DOMContentLoaded', function (event) {
@@ -439,12 +436,12 @@ function observeDomChange() {
     _recordDomInfo();
 }
 
-function overrideAsyncRequest() {
-    var asyncRequestTimerStatusPool = {};
+function overrideRequest() {
+    var requestTimerStatusPool = {};
 
-    var isAsyncRequestStatusPoolEmpty = function () {
-        for (var key in xhrStatusPool) {
-            if (key.indexOf('request-') !== -1 && xhrStatusPool[key] !== 'complete') {
+    var isRequestDetailsEmpty = function () {
+        for (var key in requestDetails) {
+            if (key.indexOf('request-') !== -1 && requestDetails[key] !== 'complete') {
                 return false;
             }
         }
@@ -452,9 +449,9 @@ function overrideAsyncRequest() {
         return true;
     };
 
-    var isAsyncRequestTimerPoolEmpty = function () {
-        for (var key in asyncRequestTimerStatusPool) {
-            if (key.indexOf('request-') !== -1 && asyncRequestTimerStatusPool[key] !== 'stopped') {
+    var isRequestTimerPoolEmpty = function () {
+        for (var key in requestTimerStatusPool) {
+            if (key.indexOf('request-') !== -1 && requestTimerStatusPool[key] !== 'stopped') {
                 return false;
             }
         }
@@ -462,23 +459,7 @@ function overrideAsyncRequest() {
         return true;
     };
 
-    // 标志是否在获取 XHR 请求的时间区间内
-    var isCatchXhrTimeout = false;
-    // 如果是第一次抓取到异步请求，则开始定时器，持续时间 FIRST_SCREEN_XHR_LASTED_TIME，获取在此期间内的所有 XHR 请求
-    var setupCatchingAsyncRequestTimer = function () {
-        var timer = setTimeout(function () {
-            isCatchXhrTimeout = true;
-
-            // 如果时间已到，并且请求池内没有未返回的请求了，说明窗口期内的请求均已返回完毕，该时刻为首屏稳定状态，执行相关函数
-            if (isAsyncRequestStatusPoolEmpty() && isAsyncRequestTimerPoolEmpty()) {
-                _processOnStableTimeFound();
-            }
-
-            clearTimeout(timer);
-        }, _options.firstScreenXhrLastedTime);
-    };
-
-    var shouldCatchThisAsyncRequest = function (url) {
+    var shouldCatchThisRequest = function (url) {
         // 默认抓取该请求到队列，认为其可能影响首屏
         var shouldCatch = true;
 
@@ -489,17 +470,15 @@ function overrideAsyncRequest() {
 
         var sendTime = new Date().getTime();
 
-        // 如果发送数据请求的时间点超过了抓取数据的时间窗口，并且不在其他时间窗口内，则认为不该抓取该请求到队列
-        if (isCatchXhrTimeout) {
-            for (var sectionIndex = 0; sectionIndex < catchXhrTimePool.length; sectionIndex++) {
-                var poolItem = catchXhrTimePool[sectionIndex];
-                if (sendTime >= poolItem[0] && sendTime <= poolItem[1]) {
-                    break;
-                }
+        // 如果发送数据请求的时间点在时间窗口内，则认为该抓取该请求到队列，主要抓取串联型请求
+        for (var sectionIndex = 0; sectionIndex < catchRequestTimeSections.length; sectionIndex++) {
+            var poolItem = catchRequestTimeSections[sectionIndex];
+            if (sendTime >= poolItem[0] && sendTime <= poolItem[1]) {
+                break;
             }
-            if (sectionIndex === catchXhrTimePool.length) {
-                shouldCatch = false;
-            }
+        }
+        if (sectionIndex === catchRequestTimeSections.length) {
+            shouldCatch = false;
         }
 
         // 如果发送请求地址不符合白名单和黑名单规则。则认为不该抓取该请求到队列
@@ -519,32 +498,31 @@ function overrideAsyncRequest() {
     }
 
     var onRequestSend = function(url, type) {
-        if (!isFirstXhrSent) {
-            isFirstXhrSent = true;
-            setupCatchingAsyncRequestTimer();
+        if (!isFirstRequestSent) {
+            isFirstRequestSent = true;
         }
 
-        var poolName = type + '-request-' + url + '-' + new Date().getTime();
-        xhrStatusPool[poolName] = 'sent';
-        asyncRequestTimerStatusPool[poolName] = 'start';
+        var requestKey = type + '-request-' + url + '-' + new Date().getTime();
+        requestDetails[requestKey] = 'sent';
+        requestTimerStatusPool[requestKey] = 'start';
 
         return {
-            poolName: poolName
+            requestKey: requestKey
         }
     };
 
-    var afterRequestReturn = function (poolName) {
+    var afterRequestReturn = function (requestKey) {
         // 标记这个请求完成
-        xhrStatusPool[poolName] = 'complete';
+        requestDetails[requestKey] = 'complete';
 
         //  当前时刻
         var returnTime = new Date().getTime();
         // 从这个请求返回的时刻起，在较短的时间段内的请求也需要被监听
-        catchXhrTimePool.push([returnTime, returnTime + _options.renderTimeAfterGettingData]);
+        catchRequestTimeSections.push([returnTime, returnTime + _options.renderTimeAfterGettingData]);
 
         var timer = setTimeout(function () {
-            asyncRequestTimerStatusPool[poolName] = 'stopped';
-            if (isCatchXhrTimeout && isAsyncRequestStatusPoolEmpty() && isAsyncRequestTimerPoolEmpty()) {
+            requestTimerStatusPool[requestKey] = 'stopped';
+            if (isRequestDetailsEmpty() && isRequestTimerPoolEmpty()) {
                 _processOnStableTimeFound();
             }
             clearTimeout(timer);
@@ -555,13 +533,13 @@ function overrideAsyncRequest() {
         var XhrProto = XMLHttpRequest.prototype;
         var oldXhrSend = XhrProto.send;
         XhrProto.send = function () {
-            if (shouldCatchThisAsyncRequest(this._http.url)) {
-                var poolName = onRequestSend(this._http.url, 'xhr').poolName;
+            if (shouldCatchThisRequest(this._http.url)) {
+                var requestKey = onRequestSend(this._http.url, 'xhr').requestKey;
 
                 var oldReadyCallback = this.onreadystatechange;
                 this.onreadystatechange = function () {
                     if (this.readyState === 4) {
-                        afterRequestReturn(poolName);
+                        afterRequestReturn(requestKey);
                     }
 
                     if (oldReadyCallback && oldReadyCallback.apply) {
@@ -584,7 +562,7 @@ function overrideAsyncRequest() {
                 // 当 fetch 已被支持，说明也支持 Promise 了，可以放心地实用 Promise，不用考虑兼容性
                 return new Promise(function (resolve, reject) {
                     var url;
-                    var poolName;
+                    var requestKey;
 
                     if (typeof args[0] === 'string') {
                         url = args[0];
@@ -595,17 +573,17 @@ function overrideAsyncRequest() {
                     // when failed to get fetch url, skip report
                     if (url) {
                         // console.warn('[auto-compute-first-screen-time] no url param found in "fetch(...)"');
-                        poolName = onRequestSend(url, 'fetch').poolName;
+                        requestKey = onRequestSend(url, 'fetch').requestKey;
                     }
 
                     oldFetch.apply(_this, args).then(function (response) {
-                        if (poolName) {
-                            afterRequestReturn(poolName);
+                        if (requestKey) {
+                            afterRequestReturn(requestKey);
                         }
                         resolve(response);
                     }).catch(function (err) {
-                        if (poolName) {
-                            afterRequestReturn(poolName);
+                        if (requestKey) {
+                            afterRequestReturn(requestKey);
                         }
                         reject(err);
                     });
@@ -639,8 +617,8 @@ function mergeUserOptions(userOptions) {
             _options.delayReport = userOptions.delayReport;
         }
 
-        if (userOptions.delayStaticPage) {
-            _options.delayStaticPage = userOptions.delayStaticPage;
+        if (userOptions.watingTimeWhenDefineStaticPage) {
+            _options.watingTimeWhenDefineStaticPage = userOptions.watingTimeWhenDefineStaticPage;
         }
 
         if (userOptions.onTimeFound) {
@@ -666,10 +644,6 @@ function mergeUserOptions(userOptions) {
             }
         }
 
-        if (userOptions.firstScreenXhrLastedTime) {
-            _options.firstScreenXhrLastedTime = userOptions.firstScreenXhrLastedTime;
-        }
-
         if (userOptions.renderTimeAfterGettingData) {
             _options.renderTimeAfterGettingData = userOptions.renderTimeAfterGettingData;
         }
@@ -684,5 +658,5 @@ module.exports = function (userOptions) {
     mergeUserOptions(userOptions);
     insertTestTimeScript();
     observeDomChange();
-    overrideAsyncRequest();
+    overrideRequest();
 };
