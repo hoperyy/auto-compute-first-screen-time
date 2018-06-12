@@ -588,7 +588,7 @@ function overrideRequest() {
                         reject(err);
                     });
                 })
-            };;
+            };
         } else {
             // fetch could be mocked by xhr, then we don't need to rewrite fetch api again.
             var settedFetch;
