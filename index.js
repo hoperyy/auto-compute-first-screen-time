@@ -4,9 +4,6 @@
  * @date 2018/02/22
  */
 
-// window.fetch = null;
-
-
 // 脚本开始运行的时间，用于各种 log 等
 var scriptStartTime = new Date().getTime();
 
@@ -618,12 +615,10 @@ function overrideAsyncRequest() {
             Object.defineProperty(window, 'fetch', {
                 set: function (value) {
                     if (value !== null) {
-                        console.log('fetch 被 set');
                         oldFetch = value;
                     }
                 },
                 get: function () {
-                    console.log('get fetch');
                     if (oldFetch) {
                         return newFetch;
                     } else {
