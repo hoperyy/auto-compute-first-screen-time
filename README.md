@@ -30,15 +30,15 @@ run this code before the scripts of page run.
 
 ```
 require('auto-compute-first-screen-time')({
-    xhr: {
+    request: {
         /*
-         * the xhr request that 'auto-compute-first-screen-time' will catch for computing data returning time;
+         * the async request that should be catched for computing first screen time;
          * RegExp Required;
          * example: [/mtop\.alibaba\.com/i]
          */
         limitedIn: [],
 
-        /* the xhr request that 'auto-compute-first-screen-time' will not catch for computing data returning time;
+        /* the async request that won't be catched for computing first screen time;
          * RegExp Required;
          * example: [/list\.alibaba\.com/i]
          */
@@ -60,6 +60,14 @@ require('auto-compute-first-screen-time')({
 // other scripts of current page
 // ...
 ```
+
+## Support xhr ?
+
+Yes!
+
+## Support fetch ?
+
+Yes!
 
 ## Details
 
