@@ -7,6 +7,8 @@
 // 脚本开始运行的时间，用于各种 log 等
 var scriptStartTime = new Date().getTime();
 
+// window.fetch = null;
+
 // 复写 fetch
 // require('./rewriteFetch');
 
@@ -50,7 +52,7 @@ var _options = {
         // result.lastedTime: result.finishedTime - window.performance.timing.navigationStart 首屏持续的时间
         // result.maxErrorTime: targetInfo.blankTime // 最大误差值
     },
-    xhr: {
+    request: {
         limitedIn: [],
         exclude: [/(sockjs)|(socketjs)|(socket\.io)/]
     },
@@ -500,14 +502,14 @@ function overrideAsyncRequest() {
         }
 
         // 如果发送请求地址不符合白名单和黑名单规则。则认为不该抓取该请求到队列
-        for (var i = 0, len = _options.xhr.limitedIn.length; i < len; i++) {
-            if (!_options.xhr.limitedIn[i].test(url)) {
+        for (var i = 0, len = _options.request.limitedIn.length; i < len; i++) {
+            if (!_options.request.limitedIn[i].test(url)) {
                 shouldCatch = false;
             }
         }
 
-        for (var i = 0, len = _options.xhr.exclude.length; i < len; i++) {
-            if (_options.xhr.exclude[i].test(url)) {
+        for (var i = 0, len = _options.request.exclude.length; i < len; i++) {
+            if (_options.request.exclude[i].test(url)) {
                 shouldCatch = false;
             }
         }
@@ -572,63 +574,57 @@ function overrideAsyncRequest() {
     };
 
     var overrideFetch = function (onRequestSend, afterRequestReturn) {
-        var oldFetch;
-        var newFetch = function () {
-            var _this = this;
-            var args = arguments;
-
-            // 当 fetch 已被支持，说明也支持 Promise 了，可以放心地实用 Promise，不用考虑兼容性
-            return new Promise(function (resolve, reject) {
-                var url;
-                var poolName;
-
-                if (typeof args[0] === 'string') {
-                    url = args[0];
-                } else if (typeof args[0] === 'object') { // Request Object
-                    url = args[0].url;
-                }
-
-                // when failed to get fetch url, skip report
-                if (url) {
-                    // console.warn('[auto-compute-first-screen-time] no url param found in "fetch(...)"');
-                    poolName = onRequestSend(url, 'fetch').poolName;
-                }
-
-                oldFetch.apply(_this, args).then(function (response) {
-                    if (poolName) {
-                        afterRequestReturn(poolName);
-                    }
-                    resolve(response);
-                }).catch(function (err) {
-                    if (poolName) {
-                        afterRequestReturn(poolName);
-                    }
-                    reject(err);
-                });
-            })
-        };
-
         if (window.fetch) {
             oldFetch = window.fetch;
-            window.fetch = newFetch;
+            window.fetch = function () {
+                var _this = this;
+                var args = arguments;
+
+                // 当 fetch 已被支持，说明也支持 Promise 了，可以放心地实用 Promise，不用考虑兼容性
+                return new Promise(function (resolve, reject) {
+                    var url;
+                    var poolName;
+
+                    if (typeof args[0] === 'string') {
+                        url = args[0];
+                    } else if (typeof args[0] === 'object') { // Request Object
+                        url = args[0].url;
+                    }
+
+                    // when failed to get fetch url, skip report
+                    if (url) {
+                        // console.warn('[auto-compute-first-screen-time] no url param found in "fetch(...)"');
+                        poolName = onRequestSend(url, 'fetch').poolName;
+                    }
+
+                    oldFetch.apply(_this, args).then(function (response) {
+                        if (poolName) {
+                            afterRequestReturn(poolName);
+                        }
+                        resolve(response);
+                    }).catch(function (err) {
+                        if (poolName) {
+                            afterRequestReturn(poolName);
+                        }
+                        reject(err);
+                    });
+                })
+            };;
         } else {
+            // fetch could be mocked by xhr, then we don't need to rewrite fetch api again.
+            var settedFetch;
             Object.defineProperty(window, 'fetch', {
                 set: function (value) {
                     if (value !== null) {
-                        oldFetch = value;
+                        settedFetch = value;
                     }
                 },
                 get: function () {
-                    if (oldFetch) {
-                        return newFetch;
-                    } else {
-                        return null;
-                    }
+                    return settedFetch || null;
                 },
             });
         }
     };
-
 
     // overide fetch first, then xhr, because fetch could be mocked by xhr
     overrideFetch(onRequestSend, afterRequestReturn);
@@ -659,12 +655,13 @@ function mergeUserOptions(userOptions) {
             };
         }
 
-        if (userOptions.xhr) {
-            if (userOptions.xhr.limitedIn) {
-                _options.xhr.limitedIn = _options.xhr.limitedIn.concat(userOptions.xhr.limitedIn);
+        var requestConfig = userOptions.request || userOptions.xhr;
+        if (requestConfig) {
+            if (requestConfig.limitedIn) {
+                _options.request.limitedIn = _options.request.limitedIn.concat(requestConfig.limitedIn);
             }
-            if (userOptions.xhr.exclude) {
-                _options.xhr.exclude = _options.xhr.exclude.concat(userOptions.xhr.exclude);
+            if (requestConfig.exclude) {
+                _options.request.exclude = _options.request.exclude.concat(requestConfig.exclude);
             }
         }
 
