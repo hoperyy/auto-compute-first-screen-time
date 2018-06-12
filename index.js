@@ -7,6 +7,7 @@
 // 脚本开始运行的时间，用于各种 log 等
 var scriptStartTime = new Date().getTime();
 
+// for debug
 // window.fetch = null;
 
 // 复写 fetch
