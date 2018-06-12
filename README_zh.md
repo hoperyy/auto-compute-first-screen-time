@@ -18,7 +18,7 @@
 
 ```
 require('auto-compute-first-screen-time')({
-    xhr: {
+    request: {
         /*
          * 只监听该数组内的 xhr 请求
          * 子项的格式为正则
@@ -49,6 +49,14 @@ require('auto-compute-first-screen-time')({
 // 页面其他代码
 // ...
 ```
+
+## 是否会拦截 XHR ?
+
+是的
+
+## 是否会拦截 fetch ?
+
+是的
 
 ## 原理是什么
 
