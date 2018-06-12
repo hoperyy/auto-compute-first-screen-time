@@ -30,7 +30,7 @@ run this code before the scripts of page run.
 
 ```
 require('auto-compute-first-screen-time')({
-    xhr: {
+    request: {
         /*
          * the async request that should be catched for computing first screen time;
          * RegExp Required;
@@ -60,6 +60,14 @@ require('auto-compute-first-screen-time')({
 // other scripts of current page
 // ...
 ```
+
+## Support xhr ?
+
+Yes!
+
+## Support fetch ?
+
+Yes!
 
 ## Details
 
