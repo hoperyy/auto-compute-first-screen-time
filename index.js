@@ -477,7 +477,7 @@ function overrideRequest() {
                 break;
             }
         }
-        if (sectionIndex === catchRequestTimeSections.length) {
+        if (catchRequestTimeSections.length && sectionIndex === catchRequestTimeSections.length) {
             shouldCatch = false;
         }
 
