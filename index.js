@@ -306,6 +306,7 @@ function _queryImages(isMatch, success) {
 
 function _getImagesInFirstScreen() {
     var screenHeight = win.innerHeight;
+    var screenWidth = document.body.clientWidth;
 
     var imgList = [];
 
@@ -324,7 +325,9 @@ function _getImagesInFirstScreen() {
 
         // 如果在首屏
         if ((scrollTop + topToView) <= screenHeight) {
-            return true;
+            if (boundingClientRect.x + boundingClientRect.width >= 0 && boundingClientRect.x <= screenWidth) {
+                return true;
+            }
         }
     }, function (src) {
         // 去重
@@ -383,7 +386,7 @@ function insertTestTimeScript() {
     var SCRIPT_FINISHED_FUNCTION_NAME = 'FIRST_SCREEN_SCRIPT_FINISHED_TIME_' + scriptStartTime;
 
     window[SCRIPT_FINISHED_FUNCTION_NAME] = function () {
-        // 如果脚本运行完毕，延时一段时间后，页面还没有发出异步请求，则认为该时刻为稳定时刻，尝试上报
+        // 如果脚本运行完毕，延时一段时间后，再判断页面是否发出异步请求，如果页面还没有发出异步请求，则认为该时刻为稳定时刻，尝试上报
         var timer = setTimeout(function() {
             if (!isFirstRequestSent) {
                 _processOnStableTimeFound();
@@ -553,61 +556,43 @@ function overrideRequest() {
     };
 
     var overrideFetch = function (onRequestSend, afterRequestReturn) {
-        if (window.fetch) {
+        if (window.fetch && typeof Promise === 'function') {
             // ensure Promise exists. If not, skip cathing request
-            if (typeof Promise === 'function') {
-                var oldFetch = window.fetch;
-                window.fetch = function () {
-                    var _this = this;
-                    var args = arguments;
+            var oldFetch = window.fetch;
+            window.fetch = function () {
+                var _this = this;
+                var args = arguments;
 
-                    // 当 fetch 已被支持，说明也支持 Promise 了，可以放心地实用 Promise，不用考虑兼容性
-                    return new Promise(function (resolve, reject) {
-                        var url;
-                        var requestKey;
+                // 当 fetch 已被支持，说明也支持 Promise 了，可以放心地实用 Promise，不用考虑兼容性
+                return new Promise(function (resolve, reject) {
+                    var url;
+                    var requestKey;
 
-                        if (typeof args[0] === 'string') {
-                            url = args[0];
-                        } else if (typeof args[0] === 'object') { // Request Object
-                            url = args[0].url;
+                    if (typeof args[0] === 'string') {
+                        url = args[0];
+                    } else if (typeof args[0] === 'object') { // Request Object
+                        url = args[0].url;
+                    }
+
+                    // when failed to get fetch url, skip report
+                    if (url) {
+                        // console.warn('[auto-compute-first-screen-time] no url param found in "fetch(...)"');
+                        requestKey = onRequestSend(url, 'fetch').requestKey;
+                    }
+
+                    oldFetch.apply(_this, args).then(function (response) {
+                        if (requestKey) {
+                            afterRequestReturn(requestKey);
                         }
-
-                        // when failed to get fetch url, skip report
-                        if (url) {
-                            // console.warn('[auto-compute-first-screen-time] no url param found in "fetch(...)"');
-                            requestKey = onRequestSend(url, 'fetch').requestKey;
+                        resolve(response);
+                    }).catch(function (err) {
+                        if (requestKey) {
+                            afterRequestReturn(requestKey);
                         }
-
-                        oldFetch.apply(_this, args).then(function (response) {
-                            if (requestKey) {
-                                afterRequestReturn(requestKey);
-                            }
-                            resolve(response);
-                        }).catch(function (err) {
-                            if (requestKey) {
-                                afterRequestReturn(requestKey);
-                            }
-                            reject(err);
-                        });
-                    })
-                };
-            }
-        } else {
-            // ensure Object.defineProperty exists. If not, skip cathing request
-            if (typeof Object.defineProperty === 'function') {
-                // fetch could be mocked by xhr, then we don't need to rewrite fetch api again.
-                var settedFetch;
-                Object.defineProperty(window, 'fetch', {
-                    set: function (value) {
-                        if (value !== null) {
-                            settedFetch = value;
-                        }
-                    },
-                    get: function () {
-                        return settedFetch || null;
-                    },
-                });
-            }
+                        reject(err);
+                    });
+                })
+            };
         }
     };
 
