@@ -306,6 +306,7 @@ function _queryImages(isMatch, success) {
 
 function _getImagesInFirstScreen() {
     var screenHeight = win.innerHeight;
+    var screenWidth = document.body.clientWidth;
 
     var imgList = [];
 
@@ -324,7 +325,9 @@ function _getImagesInFirstScreen() {
 
         // 如果在首屏
         if ((scrollTop + topToView) <= screenHeight) {
-            return true;
+            if (boundingClientRect.x + boundingClientRect.width >= 0 && boundingClientRect.x <= screenWidth) {
+                return true;
+            }
         }
     }, function (src) {
         // 去重
@@ -383,7 +386,7 @@ function insertTestTimeScript() {
     var SCRIPT_FINISHED_FUNCTION_NAME = 'FIRST_SCREEN_SCRIPT_FINISHED_TIME_' + scriptStartTime;
 
     window[SCRIPT_FINISHED_FUNCTION_NAME] = function () {
-        // 如果脚本运行完毕，延时一段时间后，页面还没有发出异步请求，则认为该时刻为稳定时刻，尝试上报
+        // 如果脚本运行完毕，延时一段时间后，再判断页面是否发出异步请求，如果页面还没有发出异步请求，则认为该时刻为稳定时刻，尝试上报
         var timer = setTimeout(function() {
             if (!isFirstRequestSent) {
                 _processOnStableTimeFound();
