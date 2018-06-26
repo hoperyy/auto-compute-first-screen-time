@@ -703,6 +703,6 @@ if (window.performance && window.performance.timing) {
     };
 } else {
     module.exports = function () {};
-    module.exports.report = function (userOptions) {};
+    module.exports.report = function () {};
 }
 
