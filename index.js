@@ -44,11 +44,7 @@ var globalRequestDetails = {};
 
 // 一些可配置项，下面是默认值
 var globalOptions = {
-    onTimeFound: function (/* result */) {
-        // result.firstScreenTimeStamp: 首屏完成的时刻
-        // result.lastedTime: result.firstScreenTimeStamp - NAV_START_TIME 首屏持续的时间
-        // result.maxErrorTime: targetInfo.blankTime // 最大误差值
-    },
+    onTimeFound: function () {},
     request: {
         limitedIn: [],
         exclude: [/(sockjs)|(socketjs)|(socket\.io)/]
