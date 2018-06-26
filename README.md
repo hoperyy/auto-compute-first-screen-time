@@ -48,9 +48,12 @@ require('auto-compute-first-screen-time')({
     // callback after first screen was got
     onTimeFound: function (result) {
         /* 
-         * result.finishedTime: The time at which first screen finished
-         * result.firstScreenTime: The time that first screen costs
+         * result.firstScreenTimeStamp: The time stamp when first screen finished
+         * result.firstScreenTime: whole time that first screen costs
          * result.maxErrorTime: The max error time than real time
+         * resule.allDottedImgMap: all dotted images when computing
+         * result.firstScreenImgMap: all dotted images in first screen when computing
+         * result.domUpdateList: all dotted object when computing
          */
 
         // report(result.firstScreenTime)
