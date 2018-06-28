@@ -67,10 +67,10 @@ if (window.performance && window.performance.timing) {
         return anchor;
     }
 
-    function _getMatchedTimeInfo(globalDomUpdateList) {
+    function _getMatchedTimeInfo() {
         // 倒序
         globalDomUpdateList.sort(function (a, b) {
-            if (a.time < b.time) {
+            if (a.timeStamp < b.timeStamp) {
                 return 1;
             } else {
                 return -1;
@@ -144,8 +144,10 @@ if (window.performance && window.performance.timing) {
         // 为 globalImgMap 添加是否是首屏标志
         var targetFirstScreenImages = null;
         var firstScreenImgMap = {};
+        var i;
+        var len;
 
-        for (var i = 0, len = globalDomUpdateList.length; i < len; i++) {
+        for (i = 0, len = globalDomUpdateList.length; i < len; i++) {
             if (globalDomUpdateList[i].isTargetTime) {
                 targetFirstScreenImages = globalDomUpdateList[i].firstScreenImages;
                 break;
@@ -153,12 +155,20 @@ if (window.performance && window.performance.timing) {
         }
 
         if (targetFirstScreenImages) {
-            for (var j = 0, lenJ = targetFirstScreenImages.length; j < lenJ; j++) {
-                var src = targetFirstScreenImages[j];
+            for (i = 0, len = targetFirstScreenImages.length; i < len; i++) {
+                var src = targetFirstScreenImages[i];
                 if (globalImgMap[src]) {
                     globalImgMap[src].isInFirstScreen = true;
                     firstScreenImgMap[src] = globalImgMap[src];
                 }
+            }
+        }
+
+        // 计算性能监控计算的耗时
+        var computeDuration = 0;
+        for (i = 0, len = globalDomUpdateList.length; i < len; i++) {
+            if (globalDomUpdateList[i].duration) {
+                computeDuration += globalDomUpdateList[i].duration;
             }
         }
 
@@ -170,13 +180,14 @@ if (window.performance && window.performance.timing) {
             requestDetails: globalRequestDetails, // new api
             domUpdateList: globalDomUpdateList,
             allDottedImgMap: globalImgMap,
-            firstScreenImgMap: firstScreenImgMap
+            firstScreenImgMap: firstScreenImgMap,
+            computeDuration: computeDuration
         });
     }
 
     // 记录运行该方法时刻的 dom 信息，主要是 images；运行时机为每次 mutationObserver 回调触发或定时器触发
     function _recordDomInfo(param) {
-        var nowTime = new Date().getTime();
+        var recordStartTime = new Date().getTime();
         var firstScreenImages = _getImagesInFirstScreen();
 
         var obj = {
@@ -185,7 +196,8 @@ if (window.performance && window.performance.timing) {
             firstScreenImages: firstScreenImages,
             blankTime: new Date().getTime() - globalLastDomUpdateTime || new Date().getTime(), // 距离上次记录有多久（用于调试）
             firstScreenTimeStamp: -1, // 当前时刻下，所有图片加载完毕的时刻
-            time: nowTime // 当前时刻
+            timeStamp: recordStartTime, // 当前时刻
+            duration: 0,
         };
 
         var imgIndex = 0;
@@ -244,12 +256,16 @@ if (window.performance && window.performance.timing) {
 
         // 如果没有图片，则以当前 DOM change 的时间为准
         if (firstScreenImages.length === 0) {
-            obj.firstScreenTimeStamp = nowTime;
+            obj.firstScreenTimeStamp = recordStartTime;
         }
+
+        var recordEndTime = new Date().getTime();
+
+        obj.duration = recordEndTime - recordStartTime;
 
         globalDomUpdateList.push(obj);
 
-        globalLastDomUpdateTime = new Date().getTime();
+        globalLastDomUpdateTime = recordEndTime;
     }
 
     function _generateTimeRunner() {
@@ -337,26 +353,25 @@ if (window.performance && window.performance.timing) {
 
     function _getImagesInFirstScreen() {
         var screenHeight = win.innerHeight;
-        var screenWidth = document.body.clientWidth;
+        var screenWidth = win.innerWidth;
 
         var imgList = [];
 
         _queryImages(function (currentNode) {
             // 过滤函数，如果符合要求，返回 true
-
             var boundingClientRect = currentNode.getBoundingClientRect();
 
-            // 如果已不显示
+            // 如果已不显示（display: none），top 和 bottom 均为 0
             if (!boundingClientRect.top && !boundingClientRect.bottom) {
                 return false;
             }
 
             var topToView = boundingClientRect.top; // getBoundingClientRect 会引起重绘
-            var scrollTop = doc.body.scrollTop;
+            var scrollTop = doc.documentElement.scrollTop || doc.body.scrollTop;
 
-            // 如果在首屏
+            // 如果在结构上的首屏内
             if ((scrollTop + topToView) <= screenHeight) {
-                if (boundingClientRect.x + boundingClientRect.width >= 0 && boundingClientRect.x <= screenWidth) {
+                if (boundingClientRect.right >= 0 && boundingClientRect.left <= screenWidth) {
                     return true;
                 }
             }
@@ -391,7 +406,7 @@ if (window.performance && window.performance.timing) {
         }
 
         // 触发事件：所有异步请求已经发布完毕
-        globalOptions.onAllXhrResolved && globalOptions.onAllXhrResolved(targetInfo.time);
+        globalOptions.onAllXhrResolved && globalOptions.onAllXhrResolved(targetInfo.timeStamp);
 
         // 标记该变动时刻为目标时刻
         targetInfo.isTargetTime = true;
