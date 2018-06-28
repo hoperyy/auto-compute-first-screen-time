@@ -83,6 +83,7 @@ the distance between average tested time and real first screen time is less than
             * resule.allDottedImgMap: all dotted images when computing
             * result.firstScreenImgMap: all dotted images in first screen when computing
             * result.domUpdateList: all dotted object when computing
+            * result.computeDuration: whole computing time
             */
 
             // report(result.firstScreenTime)
