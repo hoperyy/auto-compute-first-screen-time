@@ -165,23 +165,29 @@ if (window.performance && window.performance.timing) {
         }
 
         // 计算性能监控计算的耗时
-        var computeDuration = 0;
+        var wholeComputeDelay = 0;
+        var firstScreenComputeDelay = 0;
         for (i = 0, len = globalDomUpdateList.length; i < len; i++) {
             if (globalDomUpdateList[i].duration) {
-                computeDuration += globalDomUpdateList[i].duration;
+                wholeComputeDelay += globalDomUpdateList[i].duration;
+
+                if (globalDomUpdateList[i].timeStamp <= targetObj.timeStamp) {
+                    firstScreenComputeDelay += globalDomUpdateList[i].duration;
+                }
             }
         }
 
-        var firstScreenTime = targetObj.firstScreenTimeStamp - NAV_START_TIME;
+        var firstScreenTime = targetObj.imgReadyTimeStamp - NAV_START_TIME;
         globalOptions.onTimeFound({
             firstScreenTime: firstScreenTime, // new api
-            firstScreenTimeStamp: targetObj.firstScreenTimeStamp,
+            firstScreenTimeStamp: targetObj.imgReadyTimeStamp,
             maxErrorTime: targetObj.blankTime, // 最大误差值
             requestDetails: globalRequestDetails, // new api
             domUpdateList: globalDomUpdateList,
             allDottedImgMap: globalImgMap,
             firstScreenImgMap: firstScreenImgMap,
-            computeDuration: computeDuration
+            wholeComputeDelay: wholeComputeDelay,
+            firstScreenComputeDelay: firstScreenComputeDelay
         });
     }
 
@@ -194,8 +200,9 @@ if (window.performance && window.performance.timing) {
             isFromInternal: (param && param.isInterval) ? true : false,
             isTargetTime: false,
             firstScreenImages: firstScreenImages,
+            firstScreenImagesLength: firstScreenImages.length,
             blankTime: new Date().getTime() - globalLastDomUpdateTime || new Date().getTime(), // 距离上次记录有多久（用于调试）
-            firstScreenTimeStamp: -1, // 当前时刻下，所有图片加载完毕的时刻
+            imgReadyTimeStamp: -1, // 当前时刻下，所有图片加载完毕的时刻
             timeStamp: recordStartTime, // 当前时刻
             duration: 0,
         };
@@ -205,8 +212,8 @@ if (window.performance && window.performance.timing) {
             imgIndex++;
 
             if (imgIndex === firstScreenImages.length) {
-                // 获取所有图片中加载时间最迟的时刻，作为 firstScreenTimeStamp
-                obj.firstScreenTimeStamp = _getLastImgDownloadTime(firstScreenImages);
+                // 获取所有图片中加载时间最迟的时刻，作为 imgReadyTimeStamp
+                obj.imgReadyTimeStamp = _getLastImgDownloadTime(firstScreenImages);
 
                 // 强制上报，用于对外 api: report
                 if (param && param.forceReport) {
@@ -256,7 +263,7 @@ if (window.performance && window.performance.timing) {
 
         // 如果没有图片，则以当前 DOM change 的时间为准
         if (firstScreenImages.length === 0) {
-            obj.firstScreenTimeStamp = recordStartTime;
+            obj.imgReadyTimeStamp = recordStartTime;
         }
 
         var recordEndTime = new Date().getTime();
@@ -412,7 +419,7 @@ if (window.performance && window.performance.timing) {
         targetInfo.isTargetTime = true;
 
         // 如果 target 时刻的图片已经加载完毕，则上报该信息中记录的完成时刻
-        if (targetInfo.firstScreenTimeStamp !== -1) {
+        if (targetInfo.imgReadyTimeStamp !== -1) {
             runOnTimeFound(targetInfo);
         }
     }
@@ -720,4 +727,3 @@ if (window.performance && window.performance.timing) {
     module.exports = function () {};
     module.exports.report = function () {};
 }
-
