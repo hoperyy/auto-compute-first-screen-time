@@ -208,7 +208,15 @@ if (window.performance && window.performance.timing) {
             firstScreenImages = _getImagesFromPageTiming();
         }
 
-        console.log('~~~', firstScreenImages.length, fromDom, _getImagesInFirstScreen().length);
+        var testImgs = _getImagesInFirstScreen();
+        console.log('~~~', firstScreenImages.length, fromDom, testImgs.length);
+
+        for (var testIndex = 0, testLen = testImgs.length; testIndex < testLen; testIndex++) {
+            var testImg = new Image();
+            testImg.src = testImgs[testIndex];
+
+            console.log('status: ', testImg.complete, testImgs[testIndex]);
+        }
 
         var obj = {
             isFromInternal: (param && param.isInterval) ? true : false,
