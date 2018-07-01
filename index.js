@@ -20,9 +20,6 @@ if (window.performance && window.performance.timing) {
     // 可以抓取请求的时间窗口队列
     var globalCatchRequestTimeSections = [];
 
-    // 记录图片加载完成的时刻（唯一）
-    var globalImgMap = {};
-
     var NAV_START_TIME = window.performance.timing.navigationStart;
 
     var globalRequestDetails = {};
