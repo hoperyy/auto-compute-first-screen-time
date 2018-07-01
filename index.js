@@ -8,18 +8,8 @@ if (window.performance && window.performance.timing) {
     // 脚本开始运行的时间，用于各种 log 等
     var scriptStartTime = new Date().getTime();
 
-    // 扩展 MutationObserver 的兼容性
-    require('mutationobserver-shim');
-
     var win = window;
     var doc = win.document;
-
-    var globalTimeRunner = _generateTimeRunner();
-
-    var MutationObserver = win.MutationObserver;
-
-    // dom 变化监听器
-    var mutationObserver = null;
 
     // 是否已经上报的标志
     var globalHasReported = false;
@@ -37,9 +27,6 @@ if (window.performance && window.performance.timing) {
     var globalImgMap = {};
 
     var NAV_START_TIME = window.performance.timing.navigationStart;
-
-    // 用于记录两次 mutationObserver 回调触发的时间间隔
-    var globalLastDomUpdateTime;
 
     var globalRequestDetails = {};
 
@@ -59,6 +46,8 @@ if (window.performance && window.performance.timing) {
 
         // 检测是否是纯静态页面（没有异步请求）时，如果所有脚本运行完还没有发现异步请求，再延时当前
         watingTimeWhenDefineStaticPage: 500,
+
+        img: [/(\.)(png|jpg|jpeg|gif|webp)/i]
     };
 
     function _parseUrl(url) {
@@ -191,20 +180,45 @@ if (window.performance && window.performance.timing) {
         });
     }
 
-    // 记录运行该方法时刻的 dom 信息，主要是 images；运行时机为每次 mutationObserver 回调触发或定时器触发
-    function _recordDomInfo(param) {
+    function _getSourceDetailFromPerformance(url) {
+        var source = performance.getEntries();
+
+        var resultObj = null;
+
+        for (var i = 0, len = source.length; i < len; i++) {
+            if (source.indexOf(url) !== -1) {
+                resultObj = source[i];
+                break;
+            }
+        }
+        
+        return resultObj;
+    }
+
+    // 重操作：记录运行该方法时刻的 dom 信息，主要是 images；运行时机为每次 mutationObserver 回调触发或定时器触发
+    function _recordCurrentInfo(param) {
         var recordStartTime = new Date().getTime();
-        var firstScreenImages = _getImagesInFirstScreen();
+        var firstScreenImages = [];
+
+        // var fromDom = param && param.fromDom;
+
+        fromDom = true;
+
+        if (fromDom) {
+            firstScreenImages = _getImagesInFirstScreen();
+        } else {
+            firstScreenImages = _getImagesFromPageTiming();
+        }
 
         var obj = {
             isFromInternal: (param && param.isInterval) ? true : false,
             isTargetTime: false,
             firstScreenImages: firstScreenImages,
             firstScreenImagesLength: firstScreenImages.length,
-            blankTime: new Date().getTime() - globalLastDomUpdateTime || new Date().getTime(), // 距离上次记录有多久（用于调试）
             imgReadyTimeStamp: -1, // 当前时刻下，所有图片加载完毕的时刻
             timeStamp: recordStartTime, // 当前时刻
             duration: 0,
+            isFromPerformance: !fromDom // 是否通过 performance 获取
         };
 
         var imgIndex = 0;
@@ -227,8 +241,7 @@ if (window.performance && window.performance.timing) {
             }
         };
 
-        var generateGlobalImgMapResult = function () {
-            var time = new Date().getTime();
+        var generateGlobalImgMapResult = function (time) {
             return {
                 onloadTimeStamp: time,
                 onloadTime: time - NAV_START_TIME,
@@ -244,16 +257,26 @@ if (window.performance && window.performance.timing) {
                 img.src = src;
 
                 if (img.complete) {
+                    // 从 performance 记录中获取详细的时间
                     // 记录该图片加载完成的时间，以最早那次为准
                     if (!globalImgMap[src]) {
-                        globalImgMap[src] = generateGlobalImgMapResult();
+                        var performanceDetail = _getSourceDetailFromPerformance(src);
+                        if (performanceDetail) {
+                            console.log('performance 信息：', src, generateGlobalImgMapResult);
+                            // globalImgMap[src] = generateGlobalImgMapResult;
+                        } else {
+                            console.log('没有拿到 performance 信息：', src);
+                        }
+                        // globalImgMap[src] = generateGlobalImgMapResult(new Date().getTime());
+
+                        globalImgMap[src] = generateGlobalImgMapResult(new Date().getTime());
                     }
                     afterDownload(src);
                 } else {
                     img.onload = img.onerror = function () {
                         // 记录该图片加载完成的时间，以最早那次为准
                         if (!globalImgMap[src]) {
-                            globalImgMap[src] = generateGlobalImgMapResult();
+                            globalImgMap[src] = generateGlobalImgMapResult(new Date().getTime());
                         }
                         afterDownload(src);
                     };
@@ -271,8 +294,6 @@ if (window.performance && window.performance.timing) {
         obj.duration = recordEndTime - recordStartTime;
 
         globalDomUpdateList.push(obj);
-
-        globalLastDomUpdateTime = recordEndTime;
     }
 
     function _generateTimeRunner() {
@@ -392,17 +413,49 @@ if (window.performance && window.performance.timing) {
         return imgList;
     }
 
+    function _matchImgFilter(url) {
+        for (var i = 0, len = globalOptions.img.length; i < len; i++) {
+            if (globalOptions.img[i].test(url)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    function _getImagesFromPageTiming() {
+        var imgList = [];
+
+        var resources = performance.getEntries();
+
+        var i;
+        var len;
+        var j;
+        var lenJ;
+
+        for (i = 0, len = resources.length; i < len; i++) {
+            var url = resources[i].name;
+
+            // 查看是否匹配 img 正则
+            if (_matchImgFilter(url)) {
+                imgList.push(url);
+            }
+        }
+
+        return imgList;
+    }
+
     function _processOnStableTimeFound() {
         if (globalHasReported) {
             return;
         }
 
         globalHasReported = true;
-        mutationObserver.disconnect();
-        globalTimeRunner.clearInterval();
 
         // 记录当前时刻
-        _recordDomInfo();
+        _recordCurrentInfo({
+            fromDom: true
+        });
 
         // 找到离稳定状态最近的渲染变动时刻
         var targetInfo = _getMatchedTimeInfo(globalDomUpdateList);
@@ -450,37 +503,6 @@ if (window.performance && window.performance.timing) {
             insertedScript.async = false;
             document.body.appendChild(insertedScript);
         });
-    }
-
-    // 监听 dom 变化，脚本运行时就开始
-    function observeDomChange() {
-        // 虽然定时器的间隔设置为200，但实际运行来看，间隔的时机仍然有较大误差
-        var mutationIntervalDelay = 200;
-
-        var mutationIntervalStartTime = new Date().getTime();
-
-        var mutationIntervalCallback = function () {
-            _recordDomInfo({ isInterval: true });
-        };
-
-        // 记录首屏 DOM 的变化
-        mutationObserver = new MutationObserver(function () {
-            _recordDomInfo();
-
-            mutationIntervalCount = 0;
-            globalTimeRunner.clearInterval();
-
-            // 每次浏览器检测到的 dom 变化后，启动轮询定时器，但轮询次数有上限
-            mutationIntervalStartTime = new Date().getTime();
-            globalTimeRunner.setInterval(mutationIntervalCallback, mutationIntervalDelay);
-        });
-        mutationObserver.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-
-        // 触发回调前，先记录初始时刻的 dom 信息
-        _recordDomInfo();
     }
 
     function overrideRequest() {
@@ -707,20 +729,28 @@ if (window.performance && window.performance.timing) {
             if (userOptions.onAllXhrResolved) {
                 globalOptions.onAllXhrResolved = userOptions.onAllXhrResolved;
             }
+
+            if (userOptions.img) {
+                if (typeof userOptions.img === 'object' && typeof userOptions.img.test === 'function') {
+                    globalOptions.img.push(userOptions.img);
+                } else {
+                    console.error('[auto-compute-first-screen-time] param "img" should be type RegExp');
+                }
+            }
         }
     }
 
     module.exports = function (userOptions) {
         mergeUserOptions(userOptions);
         insertTestTimeScript();
-        observeDomChange();
         overrideRequest();
     };
 
     module.exports.report = function (userOptions) {
         mergeUserOptions(userOptions);
-        _recordDomInfo({
-            forceReport: true
+        _recordCurrentInfo({
+            forceReport: true,
+            fromDom: true
         });
     };
 } else {
