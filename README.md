@@ -51,15 +51,6 @@ the distance between average tested time and real first screen time is less than
 
         // callback after first screen was got
         onTimeFound: function (result) {
-            /* 
-            * result.firstScreenTimeStamp: The time stamp when first screen finished
-            * result.firstScreenTime: whole time that first screen costs
-            * result.maxErrorTime: The max error time than real time
-            * resule.allDottedImgMap: all dotted images when computing
-            * result.firstScreenImgMap: all dotted images in first screen when computing
-            * result.dotList: all dotted object when computing
-            */
-
             // report(result.firstScreenTime)
         }
     });
@@ -76,17 +67,6 @@ the distance between average tested time and real first screen time is less than
     autoComputeFirstScreenTime.report({
         // callback after first screen was got
         onTimeFound: function (result) {
-            /* 
-            * result.firstScreenTimeStamp: The time stamp when first screen finished
-            * result.firstScreenTime: whole time that first screen costs
-            * result.maxErrorTime: The max error time than real time
-            * resule.allDottedImgMap: all dotted images when computing
-            * result.firstScreenImgMap: all dotted images in first screen when computing
-            * result.dotList: all dotted object when computing
-            * result.wholeComputeDelay: the whole delay time when computing
-            * result.firstScreenComputeDelay: the whole delay time when computing first screen
-            */
-
             // report(result.firstScreenTime)
         }
     });
