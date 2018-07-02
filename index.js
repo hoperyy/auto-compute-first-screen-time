@@ -4,7 +4,10 @@
  * @date 2018/02/22
  */
 
-if (window.performance && window.performance.timing) {
+var supportPerformance = ('performance' in window) && ('getEntriesByType' in window.performance) && (window.performance.getEntriesByType('resource') instanceof Array);
+
+// 轻量算法
+if (supportPerformance) {
     // 脚本开始运行的时间，用于各种 log 等
     var scriptStartTime = new Date().getTime();
 
@@ -60,24 +63,32 @@ if (window.performance && window.performance.timing) {
         _recordFirstScreenInfo();
     }
 
-    // 重操作：记录运行该方法时刻的 dom 信息，主要是 images；运行时机为每次 mutationObserver 回调触发或定时器触发
+    // 重操作：记录运行该方法时刻的 dom 信息，主要是 images
     function _recordFirstScreenInfo() {
+        var startTime = new Date().getTime();
         var firstScreenImages = _getImagesInFirstScreen();
+        var endTime = new Date().getTime();
 
         // 找到最后一个图片加载完成的时刻，作为首屏时刻
-        var targetObj = {
+        var resultObj = {
+            type: 'perf',
             firstScreenImages: [],
-            firstScreenTime: -1,
-            firstScreenTimeStamp: -1,
-            requestDetails: globalRequestDetails, 
+            firstScreenImagesLength: 0,
+            requestDetails: globalRequestDetails,
+            delayFirstScreen: endTime - startTime,
+            firstScreenTime: -1, // 需要被覆盖的
+            firstScreenTimeStamp: -1, // 需要被覆盖的
         };
 
         if (!firstScreenImages.length) {
-            targetObj.firstScreenTime = performance.timing.firstScreen;
-            targetObj.firstScreenTimeStamp = performance.timing.firstScreenLoadEnd / 1000; // performance 返回的值是微秒
+            resultObj.firstScreenTime = performance.timing.firstScreen; // 时间段值
+            resultObj.firstScreenTimeStamp = performance.timing.firstScreenLoadEnd; // 时间绝对值；performance 返回的值是微秒
 
-            globalOptions.onTimeFound(targetObj);
+            globalOptions.onTimeFound(resultObj);
         } else {
+            var maxFetchTimes = 10;
+            var fetchCount = 0;
+
             // 轮询多次获取 performance 信息，直到 performance 信息能够展示首屏资源情况
             var timer = setInterval(function () {
                 var source = performance.getEntries();
@@ -85,12 +96,14 @@ if (window.performance && window.performance.timing) {
 
                 var imgLoadTimeArr = [];
                 for (var i = 0, len = source.length; i < len; i++) {
-                    if (firstScreenImages.indexOf(source[i].name) !== -1) {
+                    var sourceItem = source[i];
+                    var imgUrl = sourceItem.name;
+                    if (firstScreenImages.indexOf(imgUrl) !== -1) {
                         matchedLength++;
                         imgLoadTimeArr.push({
-                            src: source[i].name,
-                            responeEnd: source[i].responseEnd,
-                            details: source[i]
+                            src: imgUrl,
+                            responeEnd: sourceItem.responseEnd,
+                            details: sourceItem
                         });
                     }
                 }
@@ -103,11 +116,17 @@ if (window.performance && window.performance.timing) {
                 if (matchedLength === firstScreenImages.length) {
                     clearInterval(timer);
 
-                    targetObj.firstScreenImages = firstScreenImages;
-                    targetObj.firstScreenTime = imgLoadTimeArr[0].responeEnd;
-                    targetObj.firstScreenTimeStamp = imgLoadTimeArr[0].responeEnd + NAV_START_TIME;
+                    resultObj.firstScreenImages = firstScreenImages;
+                    resultObj.firstScreenImagesLength = firstScreenImages.length;
+                    resultObj.firstScreenTime = imgLoadTimeArr[0].responeEnd;
+                    resultObj.firstScreenTimeStamp = imgLoadTimeArr[0].responeEnd + NAV_START_TIME;
 
-                    globalOptions.onTimeFound(targetObj);
+                    globalOptions.onTimeFound(resultObj);
+                }
+
+                fetchCount++;
+                if (fetchCount >= maxFetchTimes) {
+                    clearInterval(timer);
                 }
             }, 1000);   
         }
@@ -461,7 +480,11 @@ if (window.performance && window.performance.timing) {
         mergeUserOptions(userOptions);
         _runOnPageStable();
     };
+} else if (window.performance && window.performance.timing) {
+    // 较重的算法，通过不断的打点获取首屏
+    module.exports = require('./lower-index');
 } else {
-    module.exports = function () {};
-    module.exports.report = function () {};
+    // 如果连 performance.timing 都不支持，就不再上报了
+    module.exports = function () { };
+    module.exports.report = function () { };
 }
