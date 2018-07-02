@@ -192,7 +192,7 @@ function runOnTimeFound(targetObj) {
 function _recordDomInfo(param) {
     var recordStartTime = new Date().getTime();
     var firstScreenImages = _getImages({
-        inFirstScreen: param && param.inFirstScreen
+        searchInFirstScreen: param && param.searchInFirstScreen
     });
 
     var obj = {
@@ -360,12 +360,12 @@ function _getImages(param) {
     var screenHeight = win.innerHeight;
     var screenWidth = win.innerWidth;
 
-    var inFirstScreen = param && param.inFirstScreen;
+    var searchInFirstScreen = param && param.searchInFirstScreen;
 
     var imgList = [];
 
     _queryImages(function (currentNode) {
-        if (inFirstScreen) {
+        if (searchInFirstScreen) {
             // 过滤函数，如果符合要求，返回 true
             var boundingClientRect = currentNode.getBoundingClientRect();
 
@@ -407,7 +407,7 @@ function _processOnStableTimeFound() {
 
     // 记录当前时刻
     _recordDomInfo({
-        inFirstScreen: true
+        searchInFirstScreen: true
     });
 
     // 找到离稳定状态最近的渲染变动时刻
@@ -724,6 +724,6 @@ module.exports.report = function (userOptions) {
     mergeUserOptions(userOptions);
     _recordDomInfo({
         forceReport: true,
-        inFirstScreen: true
+        searchInFirstScreen: true
     });
 };
