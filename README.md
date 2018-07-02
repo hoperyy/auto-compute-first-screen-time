@@ -26,43 +26,54 @@ the distance between average tested time and real first screen time is less than
 
 ## How To Use
 
-run this code before the scripts of page run.
++   auto compute first screen time
 
-```
-require('auto-compute-first-screen-time')({
-    request: {
-        /*
-         * the async request that should be catched for computing first screen time;
-         * RegExp Required;
-         * example: [/mtop\.alibaba\.com/i]
-         */
-        limitedIn: [],
+    run this code before the scripts of page run.
 
-        /* the async request that won't be catched for computing first screen time;
-         * RegExp Required;
-         * example: [/list\.alibaba\.com/i]
-         */
-        exclude: []
-    },
+    ```
+    var autoComputeFirstScreenTime = require('auto-compute-first-screen-time');
+    
+    autoComputeFirstScreenTime({
+        request: {
+            /*
+            * the async request that should be catched for computing first screen time;
+            * RegExp Required;
+            * example: [/mtop\.alibaba\.com/i]
+            */
+            limitedIn: [],
 
-    // callback after first screen was got
-    onTimeFound: function (result) {
-        /* 
-         * result.firstScreenTimeStamp: The time stamp when first screen finished
-         * result.firstScreenTime: whole time that first screen costs
-         * result.maxErrorTime: The max error time than real time
-         * resule.allDottedImgMap: all dotted images when computing
-         * result.firstScreenImgMap: all dotted images in first screen when computing
-         * result.domUpdateList: all dotted object when computing
-         */
+            /* the async request that won't be catched for computing first screen time;
+            * RegExp Required;
+            * example: [/list\.alibaba\.com/i]
+            */
+            exclude: []
+        },
 
-        // report(result.firstScreenTime)
-    }
-});
+        // callback after first screen was got
+        onTimeFound: function (result) {
+            // report(result.firstScreenTime)
+        }
+    });
 
-// other scripts of current page
-// ...
-```
+    // other scripts of current page
+    // ...
+    ```
+
++   compute first screen time by hand when ready
+
+    ```
+    var autoComputeFirstScreenTime = require('auto-compute-first-screen-time');
+
+    autoComputeFirstScreenTime.report({
+        // callback after first screen was got
+        onTimeFound: function (result) {
+            // report(result.firstScreenTime)
+        }
+    });
+
+    // other scripts of current page
+    // ...
+    ```
 
 ## Support xhr ?
 
