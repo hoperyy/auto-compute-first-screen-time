@@ -30,6 +30,8 @@ var globalDotList = [];
 // 可以抓取请求的时间窗口队列
 var globalCatchRequestTimeSections = [];
 
+var globalDelayAll = 0;
+
 // 记录图片加载完成的时刻（唯一）
 var globalImgMap = {};
 
@@ -58,6 +60,8 @@ var globalOptions = {
     watingTimeWhenDefineStaticPage: 500,
 
     dotDelay: 100,
+
+    abortTimeWhenDelay: 500
 };
 
 function _parseUrl(url) {
@@ -76,12 +80,14 @@ function _getTargetDotObj() {
         }
     });
 
+    var dotList = globalDotList.slice(1);
+
     // 获取当前时刻的 dom 信息，作为基准值
     var finalImages = globalDotList[0].firstScreenImages;
 
     var targetInfo;
 
-    var isBiggerArray = function (bigArr, smallArr, testIndex) {
+    var isBiggerArray = function (bigArr, smallArr) {
         for (var i = 0, len = smallArr.length; i < len; i++) {
             if (bigArr.indexOf(smallArr[i]) === -1) {
                 return false;
@@ -90,31 +96,24 @@ function _getTargetDotObj() {
         return true;
     };
 
+    // 如果最终状态的首屏有图片，则通过比较首屏图片数量来确定是否首屏加载完毕；否则直接使用最后一次渲染时的 dom（默认）
     if (finalImages.length > 0) {
-        for (var i = 1, len = globalDotList.length; i < len; i++) {
-            var item = globalDotList[i];
-
-            // 如果最终状态的首屏有图片，则通过比较首屏图片数量来确定是否首屏加载完毕；否则直接使用最后一次渲染时的 dom（默认）
-            if (!isBiggerArray(item.firstScreenImages, finalImages, i)) {
-                break;
+        for (var i = 0, len = dotList.length; i < len; i++) {
+            var item = dotList[i];
+            if (isBiggerArray(item.firstScreenImages, finalImages)) {
+                targetInfo = dotList[i];
             }
         }
-
-        i--;
-
-        // i === 0 说明没有匹配的
-        targetInfo = globalDotList[i];
     } else {
-        for (var i = 1, len = globalDotList.length; i < len; i++) {
-            var item = globalDotList[i];
+        for (var i = 0, len = dotList.length; i < len; i++) {
+            var item = dotList[i];
 
             // 如果稳定状态没有图片，选取最近一次 dom 变化的时刻为最终时刻
             if (!item.isFromInternal) {
+                targetInfo = dotList[i];
                 break;
             }
         }
-
-        targetInfo = globalDotList[i];
     }
 
     return targetInfo;
@@ -145,7 +144,7 @@ function runOnTargetDotFound(targetObj) {
     }
 
     globalHasReported = true;
-    
+
     // 为 globalImgMap 添加是否是首屏标志
     var targetFirstScreenImages = null;
     var firstScreenImgDetails = {};
@@ -169,12 +168,9 @@ function runOnTargetDotFound(targetObj) {
     }
 
     // 计算性能监控计算的耗时
-    var delayAll = 0;
     var delayFirstScreen = 0;
     for (i = 0, len = globalDotList.length; i < len; i++) {
         if (globalDotList[i].duration) {
-            delayAll += globalDotList[i].duration;
-
             if (globalDotList[i].timeStamp <= targetObj.timeStamp) {
                 delayFirstScreen += globalDotList[i].duration;
             }
@@ -188,7 +184,7 @@ function runOnTargetDotFound(targetObj) {
         requestDetails: globalRequestDetails, // new api
         dotList: globalDotList,
         firstScreenImgDetails: firstScreenImgDetails,
-        delayAll: delayAll,
+        delayAll: globalDelayAll,
         delayFirstScreen: delayFirstScreen,
         type: 'dot'
     });
@@ -196,13 +192,23 @@ function runOnTargetDotFound(targetObj) {
 
 // 记录运行该方法时刻的 dom 信息，主要是 images；运行时机为每次 mutationObserver 回调触发或定时器触发
 function _recordDomInfo(param) {
+    var lastDot = param && param.lastDot;
+
+    // 如果性能监控打点引发的渲染 delay 超过了 0.5s，则停止性能监控打点
+    if (!lastDot && globalDelayAll >= globalOptions.abortTimeWhenDelay) {
+        return;
+    }
+
     var recordStartTime = new Date().getTime();
-    var searchInFirstScreen = param && param.searchInFirstScreen;
+    
+    var firstScreenImages = _getImages({ searchInFirstScreen: lastDot });
+
     var recordEndTime = new Date().getTime();
 
-    var firstScreenImages = _getImages({ searchInFirstScreen: searchInFirstScreen });
+    globalDelayAll += recordEndTime - recordStartTime;
 
     var obj = {
+        isImgInFirstScreen: lastDot,
         isFromInternal: (param && param.isFromInternal) ? true : false,
         isTargetDot: (param && param.isTargetDot) || false,
         firstScreenImages: firstScreenImages,
@@ -405,7 +411,7 @@ function _processOnStopObserve() {
 
     // 记录当前时刻 dom 信息，且当前时刻为首屏图片数量等稳定的时刻
     _recordDomInfo({
-        searchInFirstScreen: true
+        lastDot: true
     });
 
     // 向前递推，找到离稳定状态最近的渲染变动时刻
@@ -413,6 +419,17 @@ function _processOnStopObserve() {
 
     if (!targetDotObj) {
         console.log('[auto-compute-first-screen-time] no suitable time found.');
+        globalOptions.onTimeFound({
+            firstScreenTime: -1, // new api
+            firstScreenTimeStamp: -1,
+            maxErrorTime: -1, // 最大误差值
+            requestDetails: globalRequestDetails, // new api
+            dotList: globalDotList,
+            firstScreenImgDetails: _getImages({ searchInFirstScreen: true }),
+            delayAll: globalDelayAll,
+            delayFirstScreen: -1,
+            type: 'dot'
+        });
         return;
     }
 
@@ -723,6 +740,6 @@ module.exports.report = function (userOptions) {
     mergeUserOptions(userOptions);
     _recordDomInfo({
         isTargetDot: true,
-        searchInFirstScreen: true
+        lastDot: true
     });
 };
