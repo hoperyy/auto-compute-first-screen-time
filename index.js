@@ -4,22 +4,15 @@
  * @date 2018/02/22
  */
 
-if (window.performance && window.performance.timing) {
+var supportPerformance = ('performance' in window) && ('getEntriesByType' in window.performance) && (window.performance.getEntriesByType('resource') instanceof Array);
+
+// 轻量算法
+if (supportPerformance) {
     // 脚本开始运行的时间，用于各种 log 等
     var scriptStartTime = new Date().getTime();
 
-    // 扩展 MutationObserver 的兼容性
-    require('mutationobserver-shim');
-
     var win = window;
     var doc = win.document;
-
-    var globalTimeRunner = _generateTimeRunner();
-
-    var MutationObserver = win.MutationObserver;
-
-    // dom 变化监听器
-    var mutationObserver = null;
 
     // 是否已经上报的标志
     var globalHasReported = false;
@@ -27,19 +20,10 @@ if (window.performance && window.performance.timing) {
     // 是否抓取过请求的标志位
     var globalIsFirstRequestSent = false;
 
-    // 记录 Mutation 回调时的 dom 信息
-    var globalDomUpdateList = [];
-
     // 可以抓取请求的时间窗口队列
     var globalCatchRequestTimeSections = [];
 
-    // 记录图片加载完成的时刻（唯一）
-    var globalImgMap = {};
-
     var NAV_START_TIME = window.performance.timing.navigationStart;
-
-    // 用于记录两次 mutationObserver 回调触发的时间间隔
-    var globalLastDomUpdateTime;
 
     var globalRequestDetails = {};
 
@@ -59,6 +43,8 @@ if (window.performance && window.performance.timing) {
 
         // 检测是否是纯静态页面（没有异步请求）时，如果所有脚本运行完还没有发现异步请求，再延时当前
         watingTimeWhenDefineStaticPage: 500,
+
+        img: [/(\.)(png|jpg|jpeg|gif|webp)/i]
     };
 
     function _parseUrl(url) {
@@ -67,254 +53,83 @@ if (window.performance && window.performance.timing) {
         return anchor;
     }
 
-    function _getMatchedTimeInfo() {
-        // 倒序
-        globalDomUpdateList.sort(function (a, b) {
-            if (a.timeStamp < b.timeStamp) {
-                return 1;
-            } else {
-                return -1;
-            }
-        });
-
-        // 获取当前时刻的 dom 信息，作为基准值
-        var finalImages = globalDomUpdateList[0].firstScreenImages;
-
-        var targetInfo;
-
-        var isBiggerArray = function (bigArr, smallArr, testIndex) {
-            for (var i = 0, len = smallArr.length; i < len; i++) {
-                if (bigArr.indexOf(smallArr[i]) === -1) {
-                    return false;
-                }
-            }
-            return true;
-        };
-
-        if (finalImages.length > 0) {
-            for (var i = 1, len = globalDomUpdateList.length; i < len; i++) {
-                var item = globalDomUpdateList[i];
-
-                // 如果最终状态的首屏有图片，则通过比较首屏图片数量来确定是否首屏加载完毕；否则直接使用最后一次渲染时的 dom（默认）
-                if (!isBiggerArray(item.firstScreenImages, finalImages, i)) {
-                    break;
-                }
-            }
-
-            i--;
-
-            // i === 0 说明没有匹配的
-            targetInfo = globalDomUpdateList[i];
-        } else {
-            for (var i = 1, len = globalDomUpdateList.length; i < len; i++) {
-                var item = globalDomUpdateList[i];
-
-                // 如果稳定状态没有图片，选取最近一次 dom 变化的时刻为最终时刻
-                if (!item.isFromInternal) {
-                    break;
-                }
-            }
-
-            targetInfo = globalDomUpdateList[i];
+    function _runOnPageStable() {
+        if (globalHasReported) {
+            return;
         }
 
-        return targetInfo;
+        globalHasReported = true;
+
+        _recordFirstScreenInfo();
     }
 
-    function _getLastImgDownloadTime(images) {
-        var timeArr = [];
-
-        images.forEach(function (src) {
-            timeArr.push(globalImgMap[src].onloadTimeStamp);
-        });
-
-        // 倒序
-        timeArr.sort(function (a, b) {
-            if (a < b) {
-                return 1;
-            } else {
-                return -1;
-            }
-        });
-
-        return timeArr[0];
-    }
-
-    function runOnTimeFound(targetObj) {
-        // 为 globalImgMap 添加是否是首屏标志
-        var targetFirstScreenImages = null;
-        var firstScreenImgMap = {};
-        var i;
-        var len;
-
-        for (i = 0, len = globalDomUpdateList.length; i < len; i++) {
-            if (globalDomUpdateList[i].isTargetTime) {
-                targetFirstScreenImages = globalDomUpdateList[i].firstScreenImages;
-                break;
-            }
-        }
-
-        if (targetFirstScreenImages) {
-            for (i = 0, len = targetFirstScreenImages.length; i < len; i++) {
-                var src = targetFirstScreenImages[i];
-                if (globalImgMap[src]) {
-                    globalImgMap[src].isInFirstScreen = true;
-                    firstScreenImgMap[src] = globalImgMap[src];
-                }
-            }
-        }
-
-        // 计算性能监控计算的耗时
-        var wholeComputeDelay = 0;
-        var firstScreenComputeDelay = 0;
-        for (i = 0, len = globalDomUpdateList.length; i < len; i++) {
-            if (globalDomUpdateList[i].duration) {
-                wholeComputeDelay += globalDomUpdateList[i].duration;
-
-                if (globalDomUpdateList[i].timeStamp <= targetObj.timeStamp) {
-                    firstScreenComputeDelay += globalDomUpdateList[i].duration;
-                }
-            }
-        }
-
-        var firstScreenTime = targetObj.imgReadyTimeStamp - NAV_START_TIME;
-        globalOptions.onTimeFound({
-            firstScreenTime: firstScreenTime, // new api
-            firstScreenTimeStamp: targetObj.imgReadyTimeStamp,
-            maxErrorTime: targetObj.blankTime, // 最大误差值
-            requestDetails: globalRequestDetails, // new api
-            domUpdateList: globalDomUpdateList,
-            allDottedImgMap: globalImgMap,
-            firstScreenImgMap: firstScreenImgMap,
-            wholeComputeDelay: wholeComputeDelay,
-            firstScreenComputeDelay: firstScreenComputeDelay
-        });
-    }
-
-    // 记录运行该方法时刻的 dom 信息，主要是 images；运行时机为每次 mutationObserver 回调触发或定时器触发
-    function _recordDomInfo(param) {
-        var recordStartTime = new Date().getTime();
+    // 重操作：记录运行该方法时刻的 dom 信息，主要是 images
+    function _recordFirstScreenInfo() {
+        var startTime = new Date().getTime();
         var firstScreenImages = _getImagesInFirstScreen();
+        var endTime = new Date().getTime();
 
-        var obj = {
-            isFromInternal: (param && param.isInterval) ? true : false,
-            isTargetTime: false,
-            firstScreenImages: firstScreenImages,
-            firstScreenImagesLength: firstScreenImages.length,
-            blankTime: new Date().getTime() - globalLastDomUpdateTime || new Date().getTime(), // 距离上次记录有多久（用于调试）
-            imgReadyTimeStamp: -1, // 当前时刻下，所有图片加载完毕的时刻
-            timeStamp: recordStartTime, // 当前时刻
-            duration: 0,
+        // 找到最后一个图片加载完成的时刻，作为首屏时刻
+        var resultObj = {
+            type: 'perf',
+            firstScreenImages: [],
+            firstScreenImagesLength: 0,
+            requestDetails: globalRequestDetails,
+            delayFirstScreen: endTime - startTime,
+            firstScreenTime: -1, // 需要被覆盖的
+            firstScreenTimeStamp: -1, // 需要被覆盖的
         };
 
-        var imgIndex = 0;
-        var afterDownload = function (src) {
-            imgIndex++;
+        if (!firstScreenImages.length) {
+            resultObj.firstScreenTime = performance.timing.firstScreen; // 时间段值
+            resultObj.firstScreenTimeStamp = performance.timing.firstScreenLoadEnd; // 时间绝对值；performance 返回的值是微秒
 
-            if (imgIndex === firstScreenImages.length) {
-                // 获取所有图片中加载时间最迟的时刻，作为 imgReadyTimeStamp
-                obj.imgReadyTimeStamp = _getLastImgDownloadTime(firstScreenImages);
+            globalOptions.onTimeFound(resultObj);
+        } else {
+            var maxFetchTimes = 10;
+            var fetchCount = 0;
 
-                // 强制上报，用于对外 api: report
-                if (param && param.forceReport) {
-                    obj.isTargetTime = true;
-                }
+            // 轮询多次获取 performance 信息，直到 performance 信息能够展示首屏资源情况
+            var timer = setInterval(function () {
+                var source = performance.getEntries();
+                var matchedLength = 0;
 
-                // 如果图片加载完成时，发现该时刻就是目标时刻，则执行上报
-                if (obj.isTargetTime) {
-                    runOnTimeFound(obj);
-                }
-            }
-        };
-
-        var generateGlobalImgMapResult = function () {
-            var time = new Date().getTime();
-            return {
-                onloadTimeStamp: time,
-                onloadTime: time - NAV_START_TIME,
-                isInFirstScreen: false
-            }
-        };
-
-        firstScreenImages.forEach(function (src) {
-            if (globalImgMap[src]) {
-                afterDownload(src);
-            } else {
-                var img = new Image();
-                img.src = src;
-
-                if (img.complete) {
-                    // 记录该图片加载完成的时间，以最早那次为准
-                    if (!globalImgMap[src]) {
-                        globalImgMap[src] = generateGlobalImgMapResult();
+                var imgLoadTimeArr = [];
+                for (var i = 0, len = source.length; i < len; i++) {
+                    var sourceItem = source[i];
+                    var imgUrl = sourceItem.name;
+                    if (firstScreenImages.indexOf(imgUrl) !== -1) {
+                        matchedLength++;
+                        imgLoadTimeArr.push({
+                            src: imgUrl,
+                            responeEnd: sourceItem.responseEnd,
+                            details: sourceItem
+                        });
                     }
-                    afterDownload(src);
-                } else {
-                    img.onload = img.onerror = function () {
-                        // 记录该图片加载完成的时间，以最早那次为准
-                        if (!globalImgMap[src]) {
-                            globalImgMap[src] = generateGlobalImgMapResult();
-                        }
-                        afterDownload(src);
-                    };
-                }
-            }
-        });
-
-        // 如果没有图片，则以当前 DOM change 的时间为准
-        if (firstScreenImages.length === 0) {
-            obj.imgReadyTimeStamp = recordStartTime;
-        }
-
-        var recordEndTime = new Date().getTime();
-
-        obj.duration = recordEndTime - recordStartTime;
-
-        globalDomUpdateList.push(obj);
-
-        globalLastDomUpdateTime = recordEndTime;
-    }
-
-    function _generateTimeRunner() {
-        var timer = null;
-        var shouldBreak = false;
-
-        function clearInterval() {
-            clearTimeout(timer);
-            shouldBreak = true;
-        }
-
-        function setInterval(callback, delay) {
-            shouldBreak = false;
-            var startTime = new Date().getTime();
-            var count = 0;
-            var handler = function () {
-                clearTimeout(timer);
-
-                count++;
-                var offset = new Date().getTime() - (startTime + count * delay);
-                var nextTime = delay - offset;
-                if (nextTime < 0) {
-                    nextTime = 0;
                 }
 
-                callback();
+                // 倒序
+                imgLoadTimeArr.sort(function (a, b) {
+                    return b.responeEnd - a.responeEnd;
+                });
 
-                if (shouldBreak) {
-                    return;
+                if (matchedLength === firstScreenImages.length) {
+                    clearInterval(timer);
+
+                    resultObj.firstScreenImages = firstScreenImages;
+                    resultObj.firstScreenImagesLength = firstScreenImages.length;
+                    resultObj.firstScreenTime = imgLoadTimeArr[0].responeEnd;
+                    resultObj.firstScreenTimeStamp = imgLoadTimeArr[0].responeEnd + NAV_START_TIME;
+
+                    globalOptions.onTimeFound(resultObj);
                 }
 
-                timer = setTimeout(handler, nextTime);
-            };
-            timer = setTimeout(handler, delay);
-
-            return timer;
+                fetchCount++;
+                if (fetchCount >= maxFetchTimes) {
+                    clearInterval(timer);
+                }
+            }, 1000);   
         }
-
-        return {
-            setInterval: setInterval,
-            clearInterval: clearInterval
-        };
     }
 
     function _queryImages(isMatch, success) {
@@ -392,38 +207,6 @@ if (window.performance && window.performance.timing) {
         return imgList;
     }
 
-    function _processOnStableTimeFound() {
-        if (globalHasReported) {
-            return;
-        }
-
-        globalHasReported = true;
-        mutationObserver.disconnect();
-        globalTimeRunner.clearInterval();
-
-        // 记录当前时刻
-        _recordDomInfo();
-
-        // 找到离稳定状态最近的渲染变动时刻
-        var targetInfo = _getMatchedTimeInfo(globalDomUpdateList);
-
-        if (!targetInfo) {
-            console.log('[auto-compute-first-screen-time] no suitable time found.');
-            return;
-        }
-
-        // 触发事件：所有异步请求已经发布完毕
-        globalOptions.onAllXhrResolved && globalOptions.onAllXhrResolved(targetInfo.timeStamp);
-
-        // 标记该变动时刻为目标时刻
-        targetInfo.isTargetTime = true;
-
-        // 如果 target 时刻的图片已经加载完毕，则上报该信息中记录的完成时刻
-        if (targetInfo.imgReadyTimeStamp !== -1) {
-            runOnTimeFound(targetInfo);
-        }
-    }
-
     // 插入脚本，用于获取脚本运行完成时间，这个时间用于获取当前页面是否有异步请求发出
     function insertTestTimeScript() {
         var insertedScript = null;
@@ -433,7 +216,7 @@ if (window.performance && window.performance.timing) {
             // 如果脚本运行完毕，延时一段时间后，再判断页面是否发出异步请求，如果页面还没有发出异步请求，则认为该时刻为稳定时刻，尝试上报
             var timer = setTimeout(function () {
                 if (!globalIsFirstRequestSent) {
-                    _processOnStableTimeFound();
+                    _runOnPageStable();
                 }
 
                 // clear
@@ -450,37 +233,6 @@ if (window.performance && window.performance.timing) {
             insertedScript.async = false;
             document.body.appendChild(insertedScript);
         });
-    }
-
-    // 监听 dom 变化，脚本运行时就开始
-    function observeDomChange() {
-        // 虽然定时器的间隔设置为200，但实际运行来看，间隔的时机仍然有较大误差
-        var mutationIntervalDelay = 200;
-
-        var mutationIntervalStartTime = new Date().getTime();
-
-        var mutationIntervalCallback = function () {
-            _recordDomInfo({ isInterval: true });
-        };
-
-        // 记录首屏 DOM 的变化
-        mutationObserver = new MutationObserver(function () {
-            _recordDomInfo();
-
-            mutationIntervalCount = 0;
-            globalTimeRunner.clearInterval();
-
-            // 每次浏览器检测到的 dom 变化后，启动轮询定时器，但轮询次数有上限
-            mutationIntervalStartTime = new Date().getTime();
-            globalTimeRunner.setInterval(mutationIntervalCallback, mutationIntervalDelay);
-        });
-        mutationObserver.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-
-        // 触发回调前，先记录初始时刻的 dom 信息
-        _recordDomInfo();
     }
 
     function overrideRequest() {
@@ -591,7 +343,7 @@ if (window.performance && window.performance.timing) {
             var timer = setTimeout(function () {
                 requestTimerStatusPool[requestKey] = 'stopped';
                 if (isRequestDetailsEmpty() && isRequestTimerPoolEmpty()) {
-                    _processOnStableTimeFound();
+                    _runOnPageStable();
                 }
                 clearTimeout(timer);
             }, globalOptions.renderTimeAfterGettingData);
@@ -707,23 +459,32 @@ if (window.performance && window.performance.timing) {
             if (userOptions.onAllXhrResolved) {
                 globalOptions.onAllXhrResolved = userOptions.onAllXhrResolved;
             }
+
+            if (userOptions.img) {
+                if (typeof userOptions.img === 'object' && typeof userOptions.img.test === 'function') {
+                    globalOptions.img.push(userOptions.img);
+                } else {
+                    console.error('[auto-compute-first-screen-time] param "img" should be type RegExp');
+                }
+            }
         }
     }
 
     module.exports = function (userOptions) {
         mergeUserOptions(userOptions);
         insertTestTimeScript();
-        observeDomChange();
         overrideRequest();
     };
 
     module.exports.report = function (userOptions) {
         mergeUserOptions(userOptions);
-        _recordDomInfo({
-            forceReport: true
-        });
+        _runOnPageStable();
     };
+} else if (window.performance && window.performance.timing) {
+    // 较重的算法，通过不断的打点获取首屏
+    module.exports = require('./lower-index');
 } else {
-    module.exports = function () {};
-    module.exports.report = function () {};
+    // 如果连 performance.timing 都不支持，就不再上报了
+    module.exports = function () { };
+    module.exports.report = function () { };
 }
