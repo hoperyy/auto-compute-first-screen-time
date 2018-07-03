@@ -36,22 +36,23 @@ the distance between average tested time and real first screen time is less than
     autoComputeFirstScreenTime({
         request: {
             /*
-            * the async request that should be catched for computing first screen time;
-            * RegExp Required;
-            * example: [/mtop\.alibaba\.com/i]
-            */
+             * the async request that will be caught for computing first screen time;
+             * RegExp Required;
+             * example: [/mtop\.alibaba\.com/i]
+             */
             limitedIn: [],
 
-            /* the async request that won't be catched for computing first screen time;
-            * RegExp Required;
-            * example: [/list\.alibaba\.com/i]
-            */
+            /* the async request that won't be caught for computing first screen time;
+             * RegExp Required;
+             * example: [/list\.alibaba\.com/i]
+             */
             exclude: []
         },
 
         // callback after first screen was got
         onTimeFound: function (result) {
             // report(result.firstScreenTime)
+            // result.firstScreenTime will be -1 if failed
         }
     });
 
@@ -68,6 +69,7 @@ the distance between average tested time and real first screen time is less than
         // callback after first screen was got
         onTimeFound: function (result) {
             // report(result.firstScreenTime)
+            // result.firstScreenTime will be -1 if failed
         }
     });
 
