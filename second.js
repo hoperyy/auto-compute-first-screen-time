@@ -59,7 +59,7 @@ var globalOptions = {
     // 检测是否是纯静态页面（没有异步请求）时，如果所有脚本运行完还没有发现异步请求，再延时当前
     watingTimeWhenDefineStaticPage: 1500,
 
-    dotDelay: 100,
+    dotDelay: 300,
 
     abortTimeWhenDelay: 2000 // 监控打点会引起页面重绘，如果引发页面重绘的时间超过了该值，则不再做性能统计
 };
