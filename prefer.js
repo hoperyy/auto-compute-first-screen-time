@@ -34,14 +34,14 @@ var globalOptions = {
         exclude: [/(sockjs)|(socketjs)|(socket\.io)/]
     },
 
-    // 获取数据后，认为渲染 dom 的时长
-    renderTimeAfterGettingData: 300,
+    // 获取数据后，认为渲染 dom 的时长；同时也是串联请求的等待间隔
+    renderTimeAfterGettingData: 500,
 
     // 找到首屏时间后，延迟上报的时间，默认为 500ms，防止页面出现需要跳转到登录导致性能数据错误的问题
     delayReport: 500,
 
     // 检测是否是纯静态页面（没有异步请求）时，如果所有脚本运行完还没有发现异步请求，再延时当前
-    watingTimeWhenDefineStaticPage: 500,
+    watingTimeWhenDefineStaticPage: 1500,
 
     img: [/(\.)(png|jpg|jpeg|gif|webp)/i]
 };
@@ -247,6 +247,8 @@ function insertTestTimeScript() {
     window[SCRIPT_FINISHED_FUNCTION_NAME] = function () {
         // 如果脚本运行完毕，延时一段时间后，再判断页面是否发出异步请求，如果页面还没有发出异步请求，则认为该时刻为稳定时刻，尝试上报
         var timer = setTimeout(function () {
+
+            console.log('延时判断是否是静态页面：', globalIsFirstRequestSent);
             if (!globalIsFirstRequestSent) {
                 _runOnPageStable();
             }
