@@ -9,7 +9,7 @@ require('mutationobserver-shim');
 var win = window;
 var doc = win.document;
 
-var globalTimeRunner = _generateTimeRunner();
+var globalIntervalDotTimer = null;
 
 var MutationObserver = win.MutationObserver;
 
@@ -38,7 +38,7 @@ var globalImgMap = {};
 var NAV_START_TIME = window.performance.timing.navigationStart;
 
 // 用于记录两次 mutationObserver 回调触发的时间间隔
-var globalLastDomUpdateTime;
+var globalLastDomUpdateTime = scriptStartTime;
 
 var globalRequestDetails = {};
 
@@ -56,13 +56,18 @@ var globalOptions = {
     // 找到首屏时间后，延迟上报的时间，默认为 500ms，防止页面出现需要跳转到登录导致性能数据错误的问题
     delayReport: 500,
 
-    // 检测是否是纯静态页面（没有异步请求）时，如果所有脚本运行完还没有发现异步请求，再延时当前
-    watingTimeWhenDefineStaticPage: 1500,
+    // onload 之后延时一段时间，如果到期后仍然没有异步请求发出，则认为是纯静态页面
+    watingTimeWhenDefineStaticPage: 1000,
 
-    dotDelay: 300,
+    // 打点间隔
+    dotDelay: 250,
 
     abortTimeWhenDelay: 2000 // 监控打点会引起页面重绘，如果引发页面重绘的时间超过了该值，则不再做性能统计
 };
+
+function _getTime() {
+    return new Date().getTime();
+}
 
 function _parseUrl(url) {
     var anchor = document.createElement('a');
@@ -199,11 +204,11 @@ function _recordDomInfo(param) {
         return;
     }
 
-    var recordStartTime = new Date().getTime();
+    var recordStartTime = _getTime();
     
     var firstScreenImages = _getImages({ searchInFirstScreen: lastDot });
 
-    var recordEndTime = new Date().getTime();
+    var recordEndTime = _getTime();
 
     globalDelayAll += recordEndTime - recordStartTime;
 
@@ -213,7 +218,7 @@ function _recordDomInfo(param) {
         isTargetDot: (param && param.isTargetDot) || false,
         firstScreenImages: firstScreenImages,
         firstScreenImagesLength: firstScreenImages.length,
-        blankTime: new Date().getTime() - globalLastDomUpdateTime || new Date().getTime(), // 距离上次记录有多久（用于调试）
+        blankTime: _getTime() - globalLastDomUpdateTime || _getTime(), // 距离上次记录有多久（用于调试）
         finishedTimeStamp: -1, // 当前时刻下，所有图片加载完毕的时刻
         timeStamp: recordStartTime, // 当前时刻
         duration: recordEndTime - recordStartTime,
@@ -243,7 +248,7 @@ function _recordDomInfo(param) {
         };
 
         var generateGlobalImgMapResult = function () {
-            var time = new Date().getTime();
+            var time = _getTime();
             return {
                 onloadTimeStamp: time,
                 onloadTime: time - NAV_START_TIME,
@@ -275,48 +280,6 @@ function _recordDomInfo(param) {
             }
         });
     }
-}
-
-function _generateTimeRunner() {
-    var timer = null;
-    var shouldBreak = false;
-
-    function clearInterval() {
-        clearTimeout(timer);
-        shouldBreak = true;
-    }
-
-    function setInterval(callback, delay) {
-        shouldBreak = false;
-        var startTime = new Date().getTime();
-        var count = 0;
-        var handler = function () {
-            clearTimeout(timer);
-
-            count++;
-            var offset = new Date().getTime() - (startTime + count * delay);
-            var nextTime = delay - offset;
-            if (nextTime < 0) {
-                nextTime = 0;
-            }
-
-            callback();
-
-            if (shouldBreak) {
-                return;
-            }
-
-            timer = setTimeout(handler, nextTime);
-        };
-        timer = setTimeout(handler, delay);
-
-        return timer;
-    }
-
-    return {
-        setInterval: setInterval,
-        clearInterval: clearInterval
-    };
 }
 
 function _queryImages(isMatch, success) {
@@ -407,7 +370,7 @@ function _processOnStopObserve() {
     globalHasStoppedObserve = true;
 
     mutationObserver.disconnect();
-    globalTimeRunner.clearInterval();
+    clearInterval(globalIntervalDotTimer);
 
     // 记录当前时刻 dom 信息，且当前时刻为首屏图片数量等稳定的时刻
     _recordDomInfo({
@@ -447,51 +410,42 @@ function _processOnStopObserve() {
 
 // 插入脚本，用于获取脚本运行完成时间，这个时间用于获取当前页面是否有异步请求发出
 function insertTestTimeScript() {
-    var insertedScript = null;
-    var SCRIPT_FINISHED_FUNCTION_NAME = 'FIRST_SCREEN_SCRIPT_FINISHED_TIME_' + scriptStartTime;
-
-    window[SCRIPT_FINISHED_FUNCTION_NAME] = function () {
+    window.addEventListener('load', function () {
         // 如果脚本运行完毕，延时一段时间后，再判断页面是否发出异步请求，如果页面还没有发出异步请求，则认为该时刻为稳定时刻，尝试上报
         var timer = setTimeout(function () {
+            // clear
+            clearTimeout(timer);
+
+            console.log('延时判断是否是静态页面：', !globalIsFirstRequestSent);
             if (!globalIsFirstRequestSent) {
                 _processOnStopObserve();
             }
-
-            // clear
-            document.body.removeChild(insertedScript);
-            insertedScript = null;
-            window[SCRIPT_FINISHED_FUNCTION_NAME] = null;
-            clearTimeout(timer);
         }, globalOptions.watingTimeWhenDefineStaticPage);
-    };
-
-    document.addEventListener('DOMContentLoaded', function (event) {
-        insertedScript = document.createElement('script');
-        insertedScript.innerHTML = 'window.' + SCRIPT_FINISHED_FUNCTION_NAME + ' && window.' + SCRIPT_FINISHED_FUNCTION_NAME + '()';
-        insertedScript.async = false;
-        document.body.appendChild(insertedScript);
     });
 }
 
 // 监听 dom 变化，脚本运行时就开始
 function observeDomChange() {
-    var mutationIntervalStartTime = new Date().getTime();
-    var internalCallback = function() {
-        _recordDomInfo({
-            isFromInternal: true
-        });
+    var lastObserverRunTime;
+
+    var dotCallback = function (param) {
+        var now = _getTime();
+        if (lastObserverRunTime && now - lastObserverRunTime < globalOptions.dotDelay) {
+            return;
+        }
+
+        lastObserverRunTime = now;
+
+        _recordDomInfo(param);
     };
 
     // 记录首屏 DOM 的变化
+    globalIntervalDotTimer = setInterval(function () {
+        dotCallback({ isFromInternal: true });
+    }, globalOptions.dotDelay);
+
     mutationObserver = new MutationObserver(function () {
-        _recordDomInfo();
-
-        mutationIntervalCount = 0;
-        globalTimeRunner.clearInterval();
-
-        // 每次浏览器检测到的 dom 变化后，启动轮询定时器，但轮询次数有上限
-        mutationIntervalStartTime = new Date().getTime();
-        globalTimeRunner.setInterval(internalCallback, globalOptions.dotDelay);
+        dotCallback({ mutation: true });
     });
     mutationObserver.observe(document.body, {
         childList: true,
@@ -499,7 +453,7 @@ function observeDomChange() {
     });
 
     // 触发回调前，先记录初始时刻的 dom 信息
-    _recordDomInfo();
+    dotCallback({isbyhand: true});
 }
 
 function overrideRequest() {
@@ -507,7 +461,7 @@ function overrideRequest() {
 
     var isRequestDetailsEmpty = function () {
         for (var key in globalRequestDetails) {
-            if (key.indexOf('request-') !== -1 && globalRequestDetails[key] && globalRequestDetails[key].status !== 'complete') {
+            if (globalRequestDetails[key] && globalRequestDetails[key].status !== 'complete') {
                 return false;
             }
         }
@@ -517,7 +471,7 @@ function overrideRequest() {
 
     var isRequestTimerPoolEmpty = function () {
         for (var key in requestTimerStatusPool) {
-            if (key.indexOf('request-') !== -1 && requestTimerStatusPool[key] !== 'stopped') {
+            if (requestTimerStatusPool[key] !== 'stopped') {
                 return false;
             }
         }
@@ -534,7 +488,7 @@ function overrideRequest() {
             shouldCatch = false;
         }
 
-        var sendTime = new Date().getTime();
+        var sendTime = _getTime();
 
         // 如果发送数据请求的时间点在时间窗口内，则认为该抓取该请求到队列，主要抓取串联型请求
         for (var sectionIndex = 0; sectionIndex < globalCatchRequestTimeSections.length; sectionIndex++) {
@@ -579,7 +533,7 @@ function overrideRequest() {
             globalIsFirstRequestSent = true;
         }
 
-        var requestKey = url + '>time:' + new Date().getTime();
+        var requestKey = url + '>time:' + _getTime();
         ensureRequestDetail(requestKey);
 
         globalRequestDetails[requestKey].status = 'sent';
@@ -594,7 +548,7 @@ function overrideRequest() {
 
     var afterRequestReturn = function (requestKey) {
         //  当前时刻
-        var returnTime = new Date().getTime();
+        var returnTime = _getTime();
 
         ensureRequestDetail(requestKey);
 
@@ -647,7 +601,6 @@ function overrideRequest() {
                 var _this = this;
                 var args = arguments;
 
-                // 当 fetch 已被支持，说明也支持 Promise 了，可以放心地实用 Promise，不用考虑兼容性
                 return new Promise(function (resolve, reject) {
                     var url;
                     var requestKey;

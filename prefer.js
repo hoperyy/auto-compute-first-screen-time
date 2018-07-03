@@ -5,7 +5,7 @@ require('mutationobserver-shim');
 var scriptStartTime = new Date().getTime();
 
 // 用于记录两次 mutationObserver 回调触发的时间间隔
-var globalLastDomUpdateTime;
+var globalLastDomUpdateTime = scriptStartTime;
 
 // dom 变化监听器
 var mutationObserver = null;
@@ -40,8 +40,8 @@ var globalOptions = {
     // 找到首屏时间后，延迟上报的时间，默认为 500ms，防止页面出现需要跳转到登录导致性能数据错误的问题
     delayReport: 500,
 
-    // 检测是否是纯静态页面（没有异步请求）时，如果所有脚本运行完还没有发现异步请求，再延时当前
-    watingTimeWhenDefineStaticPage: 1500,
+    // onload 之后延时一段时间，如果到期后仍然没有异步请求发出，则认为是纯静态页面
+    watingTimeWhenDefineStaticPage: 1000,
 
     img: [/(\.)(png|jpg|jpeg|gif|webp)/i]
 };
@@ -241,40 +241,25 @@ function _getImagesInFirstScreen() {
 
 // 插入脚本，用于获取脚本运行完成时间，这个时间用于获取当前页面是否有异步请求发出
 function insertTestTimeScript() {
-    var insertedScript = null;
-    var SCRIPT_FINISHED_FUNCTION_NAME = 'FIRST_SCREEN_SCRIPT_FINISHED_TIME_' + scriptStartTime;
-
-    window[SCRIPT_FINISHED_FUNCTION_NAME] = function () {
+    window.addEventListener('load', function () {
         // 如果脚本运行完毕，延时一段时间后，再判断页面是否发出异步请求，如果页面还没有发出异步请求，则认为该时刻为稳定时刻，尝试上报
         var timer = setTimeout(function () {
+            // clear
+            clearTimeout(timer);
 
-            console.log('延时判断是否是静态页面：', globalIsFirstRequestSent);
             if (!globalIsFirstRequestSent) {
                 _runOnPageStable();
             }
-
-            // clear
-            document.body.removeChild(insertedScript);
-            insertedScript = null;
-            window[SCRIPT_FINISHED_FUNCTION_NAME] = null;
-            clearTimeout(timer);
         }, globalOptions.watingTimeWhenDefineStaticPage);
-    };
-
-    document.addEventListener('DOMContentLoaded', function (event) {
-        insertedScript = document.createElement('script');
-        insertedScript.innerHTML = 'window.' + SCRIPT_FINISHED_FUNCTION_NAME + ' && window.' + SCRIPT_FINISHED_FUNCTION_NAME + '()';
-        insertedScript.async = false;
-        document.body.appendChild(insertedScript);
     });
 }
 
 function overrideRequest() {
     var requestTimerStatusPool = {};
 
-    var isRequestDetailsEmpty = function () {
+    var hasAllReuestReturned = function () {
         for (var key in globalRequestDetails) {
-            if (key.indexOf('request-') !== -1 && globalRequestDetails[key] && globalRequestDetails[key].status !== 'complete') {
+            if (globalRequestDetails[key] && globalRequestDetails[key].status !== 'complete') {
                 return false;
             }
         }
@@ -284,7 +269,7 @@ function overrideRequest() {
 
     var isRequestTimerPoolEmpty = function () {
         for (var key in requestTimerStatusPool) {
-            if (key.indexOf('request-') !== -1 && requestTimerStatusPool[key] !== 'stopped') {
+            if (requestTimerStatusPool[key] !== 'stopped') {
                 return false;
             }
         }
@@ -359,6 +344,7 @@ function overrideRequest() {
         }
     };
 
+
     var afterRequestReturn = function (requestKey) {
         //  当前时刻
         var returnTime = new Date().getTime();
@@ -370,16 +356,15 @@ function overrideRequest() {
         globalRequestDetails[requestKey].completeTimeStamp = returnTime;
         globalRequestDetails[requestKey].completeTime = returnTime - NAV_START_TIME;
 
-
-        // 从这个请求返回的时刻起，在较短的时间段内的请求也需要被监听
+        // 从这个请求返回的时刻起，延续一段时间，该时间段内的请求也需要被监听
         globalCatchRequestTimeSections.push([returnTime, returnTime + globalOptions.renderTimeAfterGettingData]);
 
-        var timer = setTimeout(function () {
+        var renderDelayTimer = setTimeout(function () {
             requestTimerStatusPool[requestKey] = 'stopped';
-            if (isRequestDetailsEmpty() && isRequestTimerPoolEmpty()) {
+            if (hasAllReuestReturned() && isRequestTimerPoolEmpty()) {
                 _runOnPageStable();
             }
-            clearTimeout(timer);
+            clearTimeout(renderDelayTimer);
         }, globalOptions.renderTimeAfterGettingData);
     };
 
