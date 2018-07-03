@@ -453,7 +453,7 @@ function observeDomChange() {
     });
 
     // 触发回调前，先记录初始时刻的 dom 信息
-    dotCallback({isbyhand: true});
+    dotCallback();
 }
 
 function overrideRequest() {
