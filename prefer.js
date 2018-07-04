@@ -13,6 +13,12 @@ var globalIsFirstRequestSent = false;
 // 可以抓取请求的时间窗口队列
 var globalCatchRequestTimeSections = [];
 
+// 统计没有被计入首屏的图片有哪些，和更详细的信息
+var globalIgnoredImages = [];
+
+// 设备信息，用于样本分析
+var globalDevice = {};
+
 var NAV_START_TIME = window.performance.timing.navigationStart;
 
 var globalRequestDetails = {};
@@ -58,6 +64,10 @@ function _formateUrl(url) {
 }
 
 function _runOnTimeFound(resultObj) {
+    // 为 resultObj 添加 globalIgnoredImages 字段
+    resultObj.ignoredImages = globalIgnoredImages;
+    resultObj.device = globalDevice;
+
     globalOptions.onTimeFound(resultObj);
 }
 
@@ -145,7 +155,7 @@ function _recordFirstScreenInfo() {
     }
 }
 
-function _queryImages(isMatch, success) {
+function _queryImages(isInFirstScreen, success) {
     var screenHeight = win.innerHeight;
 
     var nodeIterator = doc.createNodeIterator(
@@ -163,7 +173,7 @@ function _queryImages(isMatch, success) {
     var currentNode = nodeIterator.nextNode();
     var imgList = [];
     while (currentNode) {
-        if (!isMatch(currentNode)) {
+        if (!isInFirstScreen(currentNode)) {
             currentNode = nodeIterator.nextNode();
             continue;
         }
@@ -190,6 +200,10 @@ function _getImagesInFirstScreen() {
     var screenHeight = win.innerHeight;
     var screenWidth = win.innerWidth;
 
+    // 写入设备信息，用于上报（这里只会执行一次）
+    globalDevice.screenHeight = screenHeight;
+    globalDevice.screenWidth = screenWidth;
+
     var imgList = [];
 
     _queryImages(function (currentNode) {
@@ -200,15 +214,36 @@ function _getImagesInFirstScreen() {
         if (!boundingClientRect.top && !boundingClientRect.bottom) {
             return false;
         }
-
-        var topToView = boundingClientRect.top; // getBoundingClientRect 会引起重绘
+        
         var scrollTop = doc.documentElement.scrollTop || doc.body.scrollTop;
 
-        // 如果在结构上的首屏内
-        if ((scrollTop + topToView) <= screenHeight) {
-            if (boundingClientRect.right >= 0 && boundingClientRect.left <= screenWidth) {
-                return true;
+        var top = boundingClientRect.top; // getBoundingClientRect 会引起重绘
+        var left = boundingClientRect.left;
+        var right = boundingClientRect.right;
+
+        // 如果在结构上的首屏内（上下、左右）
+        if ((scrollTop + top) <= screenHeight && right >= 0 && left <= screenWidth) {
+            return true;
+        } else {
+            var src = '';
+            if (currentNode.nodeName.toUpperCase() == 'IMG') {
+                src = currentNode.getAttribute('src');
+            } else {
+                var bgImg = win.getComputedStyle(currentNode).getPropertyValue('background-image'); // win.getComputedStyle 会引起重绘
+                var match = bgImg.match(/^url\(['"](.+\/\/.+)['"]\)$/);
+                src = match && match[1];
             }
+            globalIgnoredImages.push({
+                src: src,
+                screenHeight: screenHeight,
+                screenWidth: screenWidth,
+                scrollTop: scrollTop,
+                top: top,
+                vertical: (scrollTop + top) <= screenHeight,
+                left: left,
+                right: right,
+                horizontal: right >= 0 && left <= screenWidth
+            });
         }
     }, function (src) {
         // 去重
@@ -344,6 +379,7 @@ function overrideRequest() {
             requestTimerStatusPool[requestKey] = 'stopped';
             if (hasAllReuestReturned() && isRequestTimerPoolEmpty()) {
                 _runOnPageStable();
+                console.log('请求结束，找到稳定时刻：', globalCatchRequestTimeSections, Date.now());
             }
             clearTimeout(renderDelayTimer);
         }, globalOptions.renderTimeAfterGettingData);

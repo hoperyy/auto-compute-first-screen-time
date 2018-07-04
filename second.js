@@ -19,6 +19,12 @@ var globalHasReported = false;
 // 是否抓取过请求的标志位
 var globalIsFirstRequestSent = false;
 
+// 设备信息，用于样本分析
+var globalDevice = {};
+
+// 统计没有被计入首屏的图片有哪些，和更详细的信息
+var globalIgnoredImages = [];
+
 // 记录 Mutation 回调时的 dom 信息
 var globalDotList = [];
 
@@ -172,7 +178,7 @@ function runOnTargetDotFound(targetObj) {
         }
     }
 
-    globalOptions.onTimeFound({
+    _runOnTimeFound({
         firstScreenTime: targetObj.firstScreenTimeStamp - NAV_START_TIME, // new api
         firstScreenTimeStamp: targetObj.firstScreenTimeStamp,
         maxErrorTime: targetObj.blankTime, // 最大误差值
@@ -331,14 +337,38 @@ function _getImages(param) {
                 return false;
             }
 
-            var topToView = boundingClientRect.top; // getBoundingClientRect 会引起重绘
+            var top = boundingClientRect.top; // getBoundingClientRect 会引起重绘
+            var left = boundingClientRect.left;
+            var right = boundingClientRect.right;
             var scrollTop = doc.documentElement.scrollTop || doc.body.scrollTop;
 
+            // 写入设备信息，用于上报（这里只会执行一次）
+            globalDevice.screenHeight = screenHeight;
+            globalDevice.screenWidth = screenWidth;
+
             // 如果在结构上的首屏内
-            if ((scrollTop + topToView) <= screenHeight) {
-                if (boundingClientRect.right >= 0 && boundingClientRect.left <= screenWidth) {
-                    return true;
+            if ((scrollTop + top) <= screenHeight && right >= 0 && left <= screenWidth) {
+                return true;
+            } else {
+                var src = '';
+                if (currentNode.nodeName.toUpperCase() == 'IMG') {
+                    src = currentNode.getAttribute('src');
+                } else {
+                    var bgImg = win.getComputedStyle(currentNode).getPropertyValue('background-image'); // win.getComputedStyle 会引起重绘
+                    var match = bgImg.match(/^url\(['"](.+\/\/.+)['"]\)$/);
+                    src = match && match[1];
                 }
+                globalIgnoredImages.push({
+                    src: src,
+                    screenHeight: screenHeight,
+                    screenWidth: screenWidth,
+                    scrollTop: scrollTop,
+                    top: top,
+                    vertical: (scrollTop + top) <= screenHeight,
+                    left: left,
+                    right: right,
+                    horizontal: right >= 0 && left <= screenWidth
+                });
             }
         } else {
             return true;
@@ -351,6 +381,13 @@ function _getImages(param) {
     });
 
     return imgList;
+}
+
+function _runOnTimeFound(reportObj) {
+    reportObj.ignoredImages = globalIgnoredImages;
+    reportObj.device = globalDevice;
+
+    globalOptions.onTimeFound(reportObj);
 }
 
 function _processOnStopObserve() {
@@ -375,7 +412,7 @@ function _processOnStopObserve() {
 
     if (!targetDotObj) {
         console.log('[auto-compute-first-screen-time] no suitable time found.');
-        globalOptions.onTimeFound({
+        _runOnTimeFound({
             firstScreenTime: -1, // new api
             firstScreenTimeStamp: -1,
             maxErrorTime: -1, // 最大误差值
