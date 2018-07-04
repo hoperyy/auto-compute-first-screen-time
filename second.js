@@ -3,18 +3,13 @@
 // 脚本开始运行的时间，用于各种 log 等
 var scriptStartTime = new Date().getTime();
 
-// 扩展 MutationObserver 的兼容性
-require('mutationobserver-shim');
-
 var win = window;
 var doc = win.document;
 
 var globalIntervalDotTimer = null;
 
-var MutationObserver = win.MutationObserver;
-
 // dom 变化监听器
-var mutationObserver = null;
+var globalMutationObserver = null;
 
 // 是否已经停止监听的标志
 var globalHasStoppedObserve = false;
@@ -37,7 +32,7 @@ var globalImgMap = {};
 
 var NAV_START_TIME = window.performance.timing.navigationStart;
 
-// 用于记录两次 mutationObserver 回调触发的时间间隔
+// 用于记录两次 globalMutationObserver 回调触发的时间间隔
 var globalLastDomUpdateTime = scriptStartTime;
 
 var globalRequestDetails = {};
@@ -101,7 +96,7 @@ function _getTargetDotObj() {
         return true;
     };
 
-    // 如果最终状态的首屏有图片，则通过比较首屏图片数量来确定是否首屏加载完毕；否则直接使用最后一次渲染时的 dom（默认）
+    // 如果最终状态的首屏有图片，则通过比较首屏图片数量来确定是否首屏加载完毕
     if (finalImages.length > 0) {
         for (var i = 0, len = dotList.length; i < len; i++) {
             var item = dotList[i];
@@ -110,15 +105,10 @@ function _getTargetDotObj() {
             }
         }
     } else {
-        for (var i = 0, len = dotList.length; i < len; i++) {
-            var item = dotList[i];
-
-            // 如果稳定状态没有图片，选取最近一次 dom 变化的时刻为最终时刻
-            if (!item.isFromInternal) {
-                targetInfo = dotList[i];
-                break;
-            }
-        }
+        // 如果最终状态没有图片，则取出当前打点的对象，首屏时间设置为 performance 值
+        targetInfo = globalDotList[0];
+        targetInfo.firstScreenTimeStamp = performance.timing.domComplete;
+        targetInfo.firstScreenTime = performance.timing.domComplete - NAV_START_TIME;
     }
 
     return targetInfo;
@@ -183,8 +173,8 @@ function runOnTargetDotFound(targetObj) {
     }
 
     globalOptions.onTimeFound({
-        firstScreenTime: targetObj.finishedTimeStamp - NAV_START_TIME, // new api
-        firstScreenTimeStamp: targetObj.finishedTimeStamp,
+        firstScreenTime: targetObj.firstScreenTimeStamp - NAV_START_TIME, // new api
+        firstScreenTimeStamp: targetObj.firstScreenTimeStamp,
         maxErrorTime: targetObj.blankTime, // 最大误差值
         requestDetails: globalRequestDetails, // new api
         dotList: globalDotList,
@@ -195,7 +185,7 @@ function runOnTargetDotFound(targetObj) {
     });
 }
 
-// 记录运行该方法时刻的 dom 信息，主要是 images；运行时机为每次 mutationObserver 回调触发或定时器触发
+// 记录运行该方法时刻的 dom 信息，主要是 images；运行时机为每次 globalMutationObserver 回调触发或定时器触发
 function _recordDomInfo(param) {
     var lastDot = param && param.lastDot;
 
@@ -219,7 +209,7 @@ function _recordDomInfo(param) {
         firstScreenImages: firstScreenImages,
         firstScreenImagesLength: firstScreenImages.length,
         blankTime: _getTime() - globalLastDomUpdateTime || _getTime(), // 距离上次记录有多久（用于调试）
-        finishedTimeStamp: -1, // 当前时刻下，所有图片加载完毕的时刻
+        firstScreenTimeStamp: -1, // 当前时刻下，所有图片加载完毕的时刻
         timeStamp: recordStartTime, // 当前时刻
         duration: recordEndTime - recordStartTime,
     };
@@ -230,15 +220,15 @@ function _recordDomInfo(param) {
 
     // 如果没有图片，则以当前 DOM change 的时间为准
     if (!firstScreenImages.length) {
-        obj.finishedTimeStamp = recordStartTime;
+        obj.firstScreenTimeStamp = recordStartTime;
     } else {
         var imgIndex = 0;
         var afterDownload = function (src) {
             imgIndex++;
 
             if (imgIndex === firstScreenImages.length) {
-                // 获取所有图片中加载时间最迟的时刻，作为 finishedTimeStamp
-                obj.finishedTimeStamp = _getLastImgDownloadTime(firstScreenImages);
+                // 获取所有图片中加载时间最迟的时刻，作为 firstScreenTimeStamp
+                obj.firstScreenTimeStamp = _getLastImgDownloadTime(firstScreenImages);
 
                 // 如果图片加载完成时，发现该时刻就是目标打点对象时刻，则执行上报
                 if (obj.isTargetDot) {
@@ -369,7 +359,10 @@ function _processOnStopObserve() {
     }
     globalHasStoppedObserve = true;
 
-    mutationObserver.disconnect();
+    if (globalMutationObserver) {
+        globalMutationObserver.disconnect();    
+    }
+    
     clearInterval(globalIntervalDotTimer);
 
     // 记录当前时刻 dom 信息，且当前时刻为首屏图片数量等稳定的时刻
@@ -403,7 +396,7 @@ function _processOnStopObserve() {
     globalOptions.onAllXhrResolved && globalOptions.onAllXhrResolved(targetDotObj.timeStamp);
 
     // 如果 target 时刻的图片已经加载完毕，则上报该信息中记录的完成时刻
-    if (targetDotObj.finishedTimeStamp !== -1) {
+    if (targetDotObj.firstScreenTimeStamp !== -1) {
         runOnTargetDotFound(targetDotObj);
     }
 }
@@ -416,7 +409,6 @@ function insertTestTimeScript() {
             // clear
             clearTimeout(timer);
 
-            console.log('延时判断是否是静态页面：', !globalIsFirstRequestSent);
             if (!globalIsFirstRequestSent) {
                 _processOnStopObserve();
             }
@@ -444,13 +436,15 @@ function observeDomChange() {
         dotCallback({ isFromInternal: true });
     }, globalOptions.dotDelay);
 
-    mutationObserver = new MutationObserver(function () {
-        dotCallback({ mutation: true });
-    });
-    mutationObserver.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
+    if (window.MutationObserver) {
+        globalMutationObserver = new window.MutationObserver(function () {
+            dotCallback({ mutation: true });
+        });
+        globalMutationObserver.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
 
     // 触发回调前，先记录初始时刻的 dom 信息
     dotCallback();

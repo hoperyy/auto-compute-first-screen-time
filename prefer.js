@@ -1,14 +1,5 @@
-// 扩展 MutationObserver 的兼容性
-require('mutationobserver-shim');
-
 // 脚本开始运行的时间，用于各种 log 等
 var scriptStartTime = new Date().getTime();
-
-// 用于记录两次 mutationObserver 回调触发的时间间隔
-var globalLastDomUpdateTime = scriptStartTime;
-
-// dom 变化监听器
-var mutationObserver = null;
 
 var win = window;
 var doc = win.document;
@@ -67,10 +58,6 @@ function _formateUrl(url) {
 }
 
 function _runOnTimeFound(resultObj) {
-    if (mutationObserver) {
-        mutationObserver.disconnect();
-    }
-
     globalOptions.onTimeFound(resultObj);
 }
 
@@ -92,14 +79,8 @@ function _recordFirstScreenInfo() {
     };
 
     if (!firstScreenImages.length) {
-        // 首屏没有图片的情况下，如果监控到 dom 的变化，则选取 dom 最后一次变化的时刻作为首屏时刻；否则使用当前时刻
-        if (globalLastDomUpdateTime) {
-            resultObj.firstScreenTimeStamp = globalLastDomUpdateTime;
-            resultObj.firstScreenTime = globalLastDomUpdateTime - NAV_START_TIME;
-        } else {
-            resultObj.firstScreenTime = endTime - NAV_START_TIME;
-            resultObj.firstScreenTimeStamp = endTime;
-        }
+        resultObj.firstScreenTimeStamp = performance.timing.domComplete;
+        resultObj.firstScreenTime = performance.timing.domComplete - NAV_START_TIME;
         _runOnTimeFound(resultObj);
     } else {
         var maxFetchTimes = 10;
@@ -489,22 +470,10 @@ function mergeUserOptions(userOptions) {
     }
 }
 
-function observeDomChange() {
-    // 记录首屏 DOM 的变化
-    mutationObserver = new MutationObserver(function () {
-        globalLastDomUpdateTime = new Date().getTime();
-    });
-    mutationObserver.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
-}
-
 // auto
 module.exports = function (userOptions) {
     mergeUserOptions(userOptions);
     insertTestTimeScript();
-    observeDomChange();
     overrideRequest();
 };
 
