@@ -144,7 +144,7 @@ function generateApi() {
         } else {
             // 如果最终状态没有图片，则取出当前打点的对象，首屏时间设置为 performance 值
             targetInfo = global.dotList[0];
-            targetInfo.firstScreenTimeStamp = performance.timing.domComplete;
+            targetInfo.firstScreenTimeStamp = performance.timing.domComplete; // 有 bug，过早获取时该值可能为 0
             targetInfo.firstScreenTime = performance.timing.domComplete - NAV_START_TIME;
         }
 
@@ -476,7 +476,28 @@ function generateApi() {
 
         // 如果 target 时刻的图片已经加载完毕，则上报该信息中记录的完成时刻
         if (targetDotObj.firstScreenTimeStamp !== -1) {
-            runOnTargetDotFound(targetDotObj);
+            // 轮询修正 domComplete 的值
+            if (targetDotObj.firstScreenTimeStamp === 0) {
+                // 轮询获取 domComplete 的值，最多轮询 10 次
+                var modifyDomCompleteCount = 0;
+                var modifyDomCompleteTimer = setInterval(function() {
+                    if (performance.timing.domComplete !== 0) {
+                        targetDotObj.firstScreenTimeStamp = performance.timing.domComplete;
+
+                        runOnTargetDotFound(targetDotObj);
+
+                        clearTimeout(modifyDomCompleteTimer);
+                    } else {
+                        modifyDomCompleteCount++;
+                    }
+
+                    if (modifyDomCompleteCount >= 10) {
+                        clearTimeout(modifyDomCompleteTimer);
+                    }
+                }, 1000);
+            } else {
+                runOnTargetDotFound(targetDotObj);
+            }
         }
     }
 
