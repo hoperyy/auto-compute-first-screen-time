@@ -71,6 +71,31 @@ function _runOnTimeFound(resultObj) {
     globalOptions.onTimeFound(resultObj);
 }
 
+function _transRequestDetails2Arr() {
+    var requests = [];
+    var requestItem = {};
+
+    // 规范化 requests
+    for (var requestDetailKey in globalRequestDetails) {
+        var parsedRequestDetailKey = requestDetailKey
+            .split(">time")[0]
+            .replace(/^http(s)?:/, '')
+            .replace(/^\/\//, '');
+
+        requestItem = {
+            src: parsedRequestDetailKey
+        };
+
+        for (var requestItemkey in globalRequestDetails[requestDetailKey]) {
+            requestItem[requestItemkey] = globalRequestDetails[requestDetailKey][requestItemkey];
+        }
+
+        requests.push(requestItem);
+    }
+
+    return requests;
+}
+
 // 重操作：记录运行该方法时刻的 dom 信息，主要是 images
 function _recordFirstScreenInfo() {
     var startTime = new Date().getTime();
@@ -78,11 +103,13 @@ function _recordFirstScreenInfo() {
     var endTime = new Date().getTime();
 
     // 找到最后一个图片加载完成的时刻，作为首屏时刻
+    // 最终呈现给用户的首屏信息对象
     var resultObj = {
         type: 'perf',
         firstScreenImages: [],
         firstScreenImagesLength: 0,
-        requestDetails: globalRequestDetails,
+        requests: _transRequestDetails2Arr(),
+        delayAll: endTime - startTime,
         delayFirstScreen: endTime - startTime,
         firstScreenTime: -1, // 需要被覆盖的
         firstScreenTimeStamp: -1, // 需要被覆盖的
@@ -379,7 +406,6 @@ function overrideRequest() {
             requestTimerStatusPool[requestKey] = 'stopped';
             if (hasAllReuestReturned() && isRequestTimerPoolEmpty()) {
                 _runOnPageStable();
-                console.log('请求结束，找到稳定时刻：', globalCatchRequestTimeSections, Date.now());
             }
             clearTimeout(renderDelayTimer);
         }, globalOptions.renderTimeAfterGettingData);

@@ -6,7 +6,7 @@
 
 var supportPerformance = ('performance' in window) && ('getEntriesByType' in window.performance) && (window.performance.getEntriesByType('resource') instanceof Array);
 
-supportPerformance = false;
+// supportPerformance = false;
 
 // 轻量算法
 if (supportPerformance) {
