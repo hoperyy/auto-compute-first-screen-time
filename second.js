@@ -76,6 +76,31 @@ function _parseUrl(url) {
     return anchor;
 }
 
+function _transRequestDetails2Arr() {
+    var requests = [];
+    var requestItem = {};
+
+    // 规范化 requests
+    for (var requestDetailKey in globalRequestDetails) {
+        var parsedRequestDetailKey = requestDetailKey
+            .split(">time")[0]
+            .replace(/^http(s)?:/, '')
+            .replace(/^\/\//, '');
+        
+        requestItem = {
+            src: parsedRequestDetailKey
+        };
+
+        for (var requestItemkey in globalRequestDetails[requestDetailKey]) {
+            requestItem[requestItemkey] = globalRequestDetails[requestDetailKey][requestItemkey];
+        }
+
+        requests.push(requestItem);
+    }
+
+    return requests;
+}
+
 function _getTargetDotObj() {
     // 倒序
     globalDotList.sort(function (a, b) {
@@ -148,9 +173,10 @@ function runOnTargetDotFound(targetObj) {
 
     // 为 globalImgMap 添加是否是首屏标志
     var targetFirstScreenImages = null;
-    var firstScreenImgDetails = {};
+    var firstScreenImages = [];
     var i;
     var len;
+    var requests = [];
 
     for (i = 0, len = globalDotList.length; i < len; i++) {
         if (globalDotList[i].isTargetDot) {
@@ -161,10 +187,7 @@ function runOnTargetDotFound(targetObj) {
 
     if (targetFirstScreenImages) {
         for (i = 0, len = targetFirstScreenImages.length; i < len; i++) {
-            var src = targetFirstScreenImages[i];
-            if (globalImgMap[src]) {
-                firstScreenImgDetails[src] = globalImgMap[src];
-            }
+            firstScreenImages.push(targetFirstScreenImages[i].replace(/^http(s)?:/, "").replace(/^\/\//, ""));
         }
     }
 
@@ -178,14 +201,26 @@ function runOnTargetDotFound(targetObj) {
         }
     }
 
+    // 规范化 requests
+    for (var requestKey in globalRequestDetails) {
+        var parsedRequestKey = requestKey
+            .split(">time")[0]
+            .replace(/^http(s)?:/, "")
+            .replace(/^\/\//, "");
+        requests.push(parsedRequestKey);
+    }
+
+    // 最终呈现给用户的首屏信息对象
     _runOnTimeFound({
-        firstScreenTime: targetObj.firstScreenTimeStamp - NAV_START_TIME, // new api
-        firstScreenTimeStamp: targetObj.firstScreenTimeStamp,
         maxErrorTime: targetObj.blankTime, // 最大误差值
-        requestDetails: globalRequestDetails, // new api
         dotList: globalDotList,
-        firstScreenImgDetails: firstScreenImgDetails,
+
         delayAll: globalDelayAll,
+        requests: requests,
+        firstScreenTime: targetObj.firstScreenTimeStamp - NAV_START_TIME,
+        firstScreenTimeStamp: targetObj.firstScreenTimeStamp,
+        firstScreenImages: targetObj.firstScreenImages,
+        firstScreenImagesLength: targetObj.firstScreenImages.length,
         delayFirstScreen: delayFirstScreen,
         type: 'dot'
     });
@@ -208,10 +243,11 @@ function _recordDomInfo(param) {
 
     globalDelayAll += recordEndTime - recordStartTime;
 
-    var obj = {
+    var dotObj = {
         isImgInFirstScreen: lastDot,
         isFromInternal: (param && param.isFromInternal) ? true : false,
         isTargetDot: (param && param.isTargetDot) || false,
+
         firstScreenImages: firstScreenImages,
         firstScreenImagesLength: firstScreenImages.length,
         blankTime: _getTime() - globalLastDomUpdateTime || _getTime(), // 距离上次记录有多久（用于调试）
@@ -220,13 +256,13 @@ function _recordDomInfo(param) {
         duration: recordEndTime - recordStartTime,
     };
 
-    globalDotList.push(obj);
+    globalDotList.push(dotObj);
 
     globalLastDomUpdateTime = recordEndTime;
 
     // 如果没有图片，则以当前 DOM change 的时间为准
     if (!firstScreenImages.length) {
-        obj.firstScreenTimeStamp = recordStartTime;
+        dotObj.firstScreenTimeStamp = recordStartTime;
     } else {
         var imgIndex = 0;
         var afterDownload = function (src) {
@@ -234,11 +270,11 @@ function _recordDomInfo(param) {
 
             if (imgIndex === firstScreenImages.length) {
                 // 获取所有图片中加载时间最迟的时刻，作为 firstScreenTimeStamp
-                obj.firstScreenTimeStamp = _getLastImgDownloadTime(firstScreenImages);
+                dotObj.firstScreenTimeStamp = _getLastImgDownloadTime(firstScreenImages);
 
                 // 如果图片加载完成时，发现该时刻就是目标打点对象时刻，则执行上报
-                if (obj.isTargetDot) {
-                    runOnTargetDotFound(obj);
+                if (dotObj.isTargetDot) {
+                    runOnTargetDotFound(dotObj);
                 }
             }
         };
@@ -413,15 +449,15 @@ function _processOnStopObserve() {
     if (!targetDotObj) {
         console.log('[auto-compute-first-screen-time] no suitable time found.');
         _runOnTimeFound({
-            firstScreenTime: -1, // new api
+            firstScreenTime: -1,
             firstScreenTimeStamp: -1,
-            maxErrorTime: -1, // 最大误差值
-            requestDetails: globalRequestDetails, // new api
+            maxErrorTime: -1,
+            requests: _transRequestDetails2Arr(),
             dotList: globalDotList,
-            firstScreenImgDetails: _getImages({ searchInFirstScreen: true }),
+            firstScreenImages: _getImages({ searchInFirstScreen: true }),
             delayAll: globalDelayAll,
             delayFirstScreen: -1,
-            type: 'dot'
+            type: 'none'
         });
         return;
     }
