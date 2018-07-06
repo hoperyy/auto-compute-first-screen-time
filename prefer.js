@@ -4,6 +4,7 @@ var scriptStartTime = new Date().getTime();
 var win = window;
 var doc = win.document;
 var NAV_START_TIME = window.performance.timing.navigationStart;
+var util = require('./util');
 
 function generateApi() {
     // 所有变量和函数定义在闭包环境，为了支持同时手动上报和自动上报功能
@@ -124,9 +125,11 @@ function generateApi() {
         };
 
         if (!firstScreenImages.length) {
-            resultObj.firstScreenTimeStamp = performance.timing.domComplete;
-            resultObj.firstScreenTime = performance.timing.domComplete - NAV_START_TIME;
-            _runOnTimeFound(resultObj);
+            util.getDomCompleteTime(function (domCompleteStamp) {
+                resultObj.firstScreenTimeStamp = domCompleteStamp;
+                resultObj.firstScreenTime = domCompleteStamp - NAV_START_TIME; 
+                _runOnTimeFound(resultObj);
+            });
         } else {
             var maxFetchTimes = 10;
             var fetchCount = 0;
