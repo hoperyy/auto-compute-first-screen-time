@@ -134,8 +134,7 @@ function generateApi() {
             var maxFetchTimes = 10;
             var fetchCount = 0;
 
-            // 轮询多次获取 performance 信息，直到 performance 信息能够展示首屏资源情况
-            var timer = setInterval(function () {
+            var getDomComplete = function () {
                 var source = performance.getEntries();
                 var matchedLength = 0;
                 var i;
@@ -189,7 +188,12 @@ function generateApi() {
                 if (fetchCount >= maxFetchTimes) {
                     clearInterval(timer);
                 }
-            }, 1000);
+            };
+
+            // 轮询多次获取 performance 信息，直到 performance 信息能够展示首屏资源情况
+            var timer = setInterval(getDomComplete, 1000);
+
+            getDomComplete();
         }
     }
 
@@ -200,11 +204,7 @@ function generateApi() {
             doc.body,
             NodeFilter.SHOW_ELEMENT,
             function (node) {
-                if (node.nodeName.toUpperCase() == 'IMG') {
-                    return NodeFilter.FILTER_ACCEPT;
-                } else if (win.getComputedStyle(node).getPropertyValue('background-image') !== 'none') { // win.getComputedStyle 会引起重绘
-                    return NodeFilter.FILTER_ACCEPT;
-                }
+                return NodeFilter.FILTER_ACCEPT;
             }
         );
 
@@ -216,18 +216,13 @@ function generateApi() {
                 continue;
             }
 
-            var src = '';
-            if (currentNode.nodeName.toUpperCase() == 'IMG') {
-                src = currentNode.getAttribute('src');
-            } else {
-                var bgImg = win.getComputedStyle(currentNode).getPropertyValue('background-image'); // win.getComputedStyle 会引起重绘
-                var match = bgImg.match(/^url\(['"](.+\/\/.+)['"]\)$/);
-                src = match && match[1];
-            }
+            var src = util._getImgSrcFromDom(currentNode);
 
-            var protocol = _parseUrl(src).protocol;
-            if (src && protocol && protocol.indexOf('http') === 0) {
-                success(src);
+            if (src) {
+                var protocol = _parseUrl(src).protocol;
+                if (protocol && protocol.indexOf('http') === 0) {
+                    success(src);
+                }
             }
 
             currentNode = nodeIterator.nextNode();
@@ -244,7 +239,7 @@ function generateApi() {
 
         var imgList = [];
 
-        _queryImages(function (currentNode) {
+        _queryImages(function(currentNode) {
             // 过滤函数，如果符合要求，返回 true
             var boundingClientRect = currentNode.getBoundingClientRect();
 
@@ -263,16 +258,9 @@ function generateApi() {
             if ((scrollTop + top) <= screenHeight && right >= 0 && left <= screenWidth) {
                 return true;
             } else {
-                var src = '';
-                if (currentNode.nodeName.toUpperCase() == 'IMG') {
-                    src = currentNode.getAttribute('src');
-                } else {
-                    var bgImg = win.getComputedStyle(currentNode).getPropertyValue('background-image'); // win.getComputedStyle 会引起重绘
-                    var match = bgImg.match(/^url\(['"](.+\/\/.+)['"]\)$/);
-                    src = match && match[1];
-                }
+                // 统计没有在首屏的图片信息
                 global.ignoredImages.push({
-                    src: src,
+                    src: util._getImgSrcFromDom(currentNode),
                     screenHeight: screenHeight,
                     screenWidth: screenWidth,
                     scrollTop: scrollTop,
