@@ -8,28 +8,28 @@ var util = require('./util');
 function generateApi() {
     // 所有变量和函数定义在闭包环境，为了支持同时手动上报和自动上报功能
 
-    var global = util.mergeGlobal(util.initGlobal(), {
+    var _global = util.mergeGlobal(util.initGlobal(), {
         options: {
             img: [/(\.)(png|jpg|jpeg|gif|webp)/i]
         }
     });
 
     function runOnPageStable() {
-        if (global.hasReported) {
+        if (_global.hasReported) {
             return;
         }
 
-        global.hasReported = true;
+        _global.hasReported = true;
 
         _recordFirstScreenInfo();
     }
 
     function _runOnTimeFound(resultObj) {
-        // 为 resultObj 添加 global.ignoredImages 字段
-        resultObj.ignoredImages = global.ignoredImages;
-        resultObj.device = global.device;
+        // 为 resultObj 添加 _global.ignoredImages 字段
+        resultObj.ignoredImages = _global.ignoredImages;
+        resultObj.device = _global.device;
 
-        global.options.onTimeFound(resultObj);
+        _global.options.onTimeFound(resultObj);
     }
  
     // 重操作：记录运行该方法时刻的 dom 信息，主要是 images
@@ -44,7 +44,7 @@ function generateApi() {
             type: 'perf',
             firstScreenImages: [],
             firstScreenImagesLength: 0,
-            requests: util.transRequestDetails2Arr(global),
+            requests: util.transRequestDetails2Arr(_global),
             delayAll: endTime - startTime,
             delayFirstScreen: endTime - startTime,
             firstScreenTime: -1, // 需要被覆盖的
@@ -129,8 +129,8 @@ function generateApi() {
         var screenWidth = win.innerWidth;
 
         // 写入设备信息，用于上报（这里只会执行一次）
-        global.device.screenHeight = screenHeight;
-        global.device.screenWidth = screenWidth;
+        _global.device.screenHeight = screenHeight;
+        _global.device.screenWidth = screenWidth;
 
         var nodeIterator = util.queryAllNode();
         var currentNode = nodeIterator.nextNode();
@@ -158,7 +158,7 @@ function generateApi() {
                 onImgSrcFound(imgSrc);
             } else {
                 // 统计没有在首屏的图片信息
-                global.ignoredImages.push({
+                _global.ignoredImages.push({
                     src: imgSrc,
                     screenHeight: screenHeight,
                     screenWidth: screenWidth,
@@ -179,18 +179,18 @@ function generateApi() {
 
     // 插入脚本，用于获取脚本运行完成时间，这个时间用于获取当前页面是否有异步请求发出
     function insertTestTimeScript() {
-        util.insertTestTimeScript(runOnPageStable, global);
+        util.insertTestTimeScript(runOnPageStable, _global);
     }
 
     function overrideRequest() {
-        util.overrideRequest(global, onStopObserving);
+        util.overrideRequest(_global, onStopObserving);
     }
 
     function mergeUserOptions(userOptions) {
-        util.mergeUserOptions(global, userOptions);
+        util.mergeUserOptions(_global, userOptions);
         if (userOptions && userOptions.img) {
             if (typeof userOptions.img === 'object' && typeof userOptions.img.test === 'function') {
-                global.options.img.push(userOptions.img);
+                _global.options.img.push(userOptions.img);
             } else {
                 console.error('[auto-compute-first-screen-time] param "img" should be type RegExp');
             }

@@ -72,12 +72,12 @@ module.exports = {
         anchor.href = url;
         return anchor;
     },
-    transRequestDetails2Arr: function (global) {
+    transRequestDetails2Arr: function (_global) {
         var requests = [];
         var requestItem = {};
 
         // 规范化 requests
-        for (var requestDetailKey in global.requestDetails) {
+        for (var requestDetailKey in _global.requestDetails) {
             var parsedRequestDetailKey = requestDetailKey
                 .split(">time")[0]
                 .replace(/^http(s)?:/, '')
@@ -87,8 +87,8 @@ module.exports = {
                 src: parsedRequestDetailKey
             };
 
-            for (var requestItemkey in global.requestDetails[requestDetailKey]) {
-                requestItem[requestItemkey] = global.requestDetails[requestDetailKey][requestItemkey];
+            for (var requestItemkey in _global.requestDetails[requestDetailKey]) {
+                requestItem[requestItemkey] = _global.requestDetails[requestDetailKey][requestItemkey];
             }
 
             requests.push(requestItem);
@@ -202,13 +202,13 @@ module.exports = {
         }
     },
 
-    overrideRequest: function(global, onStable) {
+    overrideRequest: function(_global, onStable) {
         var _this = this;
         var requestTimerStatusPool = {};
 
         var hasAllReuestReturned = function () {
-            for (var key in global.requestDetails) {
-                if (global.requestDetails[key] && global.requestDetails[key].status !== 'complete') {
+            for (var key in _global.requestDetails) {
+                if (_global.requestDetails[key] && _global.requestDetails[key].status !== 'complete') {
                     return false;
                 }
             }
@@ -231,32 +231,32 @@ module.exports = {
             var shouldCatch = true;
 
             // 如果已经上报，则不再抓取请求
-            if (global.hasReported) {
+            if (_global.hasReported) {
                 shouldCatch = false;
             }
 
             var sendTime = _this.getTime();
 
             // 如果发送数据请求的时间点在时间窗口内，则认为该抓取该请求到队列，主要抓取串联型请求
-            for (var sectionIndex = 0; sectionIndex < global.catchRequestTimeSections.length; sectionIndex++) {
-                var poolItem = global.catchRequestTimeSections[sectionIndex];
+            for (var sectionIndex = 0; sectionIndex < _global.catchRequestTimeSections.length; sectionIndex++) {
+                var poolItem = _global.catchRequestTimeSections[sectionIndex];
                 if (sendTime >= poolItem[0] && sendTime <= poolItem[1]) {
                     break;
                 }
             }
-            if (global.catchRequestTimeSections.length && sectionIndex === global.catchRequestTimeSections.length) {
+            if (_global.catchRequestTimeSections.length && sectionIndex === _global.catchRequestTimeSections.length) {
                 shouldCatch = false;
             }
 
             // 如果发送请求地址不符合白名单和黑名单规则。则认为不该抓取该请求到队列
-            for (var i = 0, len = global.options.request.limitedIn.length; i < len; i++) {
-                if (!global.options.request.limitedIn[i].test(url)) {
+            for (var i = 0, len = _global.options.request.limitedIn.length; i < len; i++) {
+                if (!_global.options.request.limitedIn[i].test(url)) {
                     shouldCatch = false;
                 }
             }
 
-            for (var i = 0, len = global.options.request.exclude.length; i < len; i++) {
-                if (global.options.request.exclude[i].test(url)) {
+            for (var i = 0, len = _global.options.request.exclude.length; i < len; i++) {
+                if (_global.options.request.exclude[i].test(url)) {
                     shouldCatch = false;
                 }
             }
@@ -265,8 +265,8 @@ module.exports = {
         }
 
         var ensureRequestDetail = function (requestKey) {
-            if (!global.requestDetails[requestKey]) {
-                global.requestDetails[requestKey] = {
+            if (!_global.requestDetails[requestKey]) {
+                _global.requestDetails[requestKey] = {
                     status: '',
                     completeTimeStamp: '',
                     completeTime: '',
@@ -276,15 +276,15 @@ module.exports = {
         };
 
         var onRequestSend = function (url, type) {
-            if (!global.isFirstRequestSent) {
-                global.isFirstRequestSent = true;
+            if (!_global.isFirstRequestSent) {
+                _global.isFirstRequestSent = true;
             }
 
             var requestKey = url + '>time:' + _this.getTime();
             ensureRequestDetail(requestKey);
 
-            global.requestDetails[requestKey].status = 'sent';
-            global.requestDetails[requestKey].type = type;
+            _global.requestDetails[requestKey].status = 'sent';
+            _global.requestDetails[requestKey].type = type;
 
             requestTimerStatusPool[requestKey] = 'start';
 
@@ -301,12 +301,12 @@ module.exports = {
             ensureRequestDetail(requestKey);
 
             // 标记这个请求完成
-            global.requestDetails[requestKey].status = 'complete';
-            global.requestDetails[requestKey].completeTimeStamp = returnTime;
-            global.requestDetails[requestKey].completeTime = returnTime - _this.NAV_START_TIME;
+            _global.requestDetails[requestKey].status = 'complete';
+            _global.requestDetails[requestKey].completeTimeStamp = returnTime;
+            _global.requestDetails[requestKey].completeTime = returnTime - _this.NAV_START_TIME;
 
             // 从这个请求返回的时刻起，延续一段时间，该时间段内的请求也需要被监听
-            global.catchRequestTimeSections.push([returnTime, returnTime + global.options.renderTimeAfterGettingData]);
+            _global.catchRequestTimeSections.push([returnTime, returnTime + _global.options.renderTimeAfterGettingData]);
 
             var renderDelayTimer = setTimeout(function () {
                 requestTimerStatusPool[requestKey] = 'stopped';
@@ -314,7 +314,7 @@ module.exports = {
                     onStable();
                 }
                 clearTimeout(renderDelayTimer);
-            }, global.options.renderTimeAfterGettingData);
+            }, _global.options.renderTimeAfterGettingData);
         };
 
         var overideXhr = function (onRequestSend, afterRequestReturn) {
@@ -346,18 +346,18 @@ module.exports = {
         overideXhr(onRequestSend, afterRequestReturn);
     },
 
-    mergeUserOptions: function(global, userOptions) {
+    mergeUserOptions: function(_global, userOptions) {
         if (userOptions) {
             if (userOptions.delayReport) {
-                global.options.delayReport = userOptions.delayReport;
+                _global.options.delayReport = userOptions.delayReport;
             }
 
             if (userOptions.watingTimeWhenDefineStaticPage) {
-                global.options.watingTimeWhenDefineStaticPage = userOptions.watingTimeWhenDefineStaticPage;
+                _global.options.watingTimeWhenDefineStaticPage = userOptions.watingTimeWhenDefineStaticPage;
             }
 
             if (userOptions.onTimeFound) {
-                global.options.onTimeFound = function () {
+                _global.options.onTimeFound = function () {
                     var _this = this;
                     var args = arguments;
 
@@ -365,41 +365,41 @@ module.exports = {
                     var timer = setTimeout(function () {
                         userOptions.onTimeFound.apply(_this, args);
                         clearTimeout(timer);
-                    }, global.options.delayReport);
+                    }, _global.options.delayReport);
                 };
             }
 
             var requestConfig = userOptions.request || userOptions.xhr;
             if (requestConfig) {
                 if (requestConfig.limitedIn) {
-                    global.options.request.limitedIn = global.options.request.limitedIn.concat(requestConfig.limitedIn);
+                    _global.options.request.limitedIn = _global.options.request.limitedIn.concat(requestConfig.limitedIn);
                 }
                 if (requestConfig.exclude) {
-                    global.options.request.exclude = global.options.request.exclude.concat(requestConfig.exclude);
+                    _global.options.request.exclude = _global.options.request.exclude.concat(requestConfig.exclude);
                 }
             }
 
             if (userOptions.renderTimeAfterGettingData) {
-                global.options.renderTimeAfterGettingData = userOptions.renderTimeAfterGettingData;
+                _global.options.renderTimeAfterGettingData = userOptions.renderTimeAfterGettingData;
             }
 
             if (userOptions.onAllXhrResolved) {
-                global.options.onAllXhrResolved = userOptions.onAllXhrResolved;
+                _global.options.onAllXhrResolved = userOptions.onAllXhrResolved;
             }
         }
     },
 
-    insertTestTimeScript: function(onStable, global) {
+    insertTestTimeScript: function(onStable, _global) {
         window.addEventListener('load', function () {
             // 如果脚本运行完毕，延时一段时间后，再判断页面是否发出异步请求，如果页面还没有发出异步请求，则认为该时刻为稳定时刻，尝试上报
             var timer = setTimeout(function () {
                 // clear
                 clearTimeout(timer);
 
-                if (!global.isFirstRequestSent) {
+                if (!_global.isFirstRequestSent) {
                     onStable();
                 }
-            }, global.options.watingTimeWhenDefineStaticPage);
+            }, _global.options.watingTimeWhenDefineStaticPage);
         });
     }
 };
