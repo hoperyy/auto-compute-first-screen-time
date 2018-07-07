@@ -274,7 +274,7 @@ function generateApi() {
         // 如果没有图片，则以 domComplete 的时间为准（有可能值为 0）
         if (!firstScreenImages.length) {
             dotObj.firstScreenTimeStamp = performance.timing.domComplete;
-            _checkTargetDot(dotObj, 'no img');
+            _checkTargetDot(dotObj);
         } else {
             var imgIndex = 0;
             var afterDownload = function (src) {
@@ -285,7 +285,7 @@ function generateApi() {
                     dotObj.firstScreenTimeStamp = _getLastImgDownloadTime(firstScreenImages);
 
                     // 检查是否是目标打点
-                    _checkTargetDot(dotObj, 'img');
+                    _checkTargetDot(dotObj);
                 }
             };
 
@@ -331,11 +331,7 @@ function generateApi() {
             doc.body,
             NodeFilter.SHOW_ELEMENT,
             function (node) {
-                if (node.nodeName.toUpperCase() == 'IMG') {
-                    return NodeFilter.FILTER_ACCEPT;
-                } else if (win.getComputedStyle(node).getPropertyValue('background-image') !== 'none') { // win.getComputedStyle 会引起重绘
-                    return NodeFilter.FILTER_ACCEPT;
-                }
+                return NodeFilter.FILTER_ACCEPT;
             }
         );
 
@@ -347,18 +343,13 @@ function generateApi() {
                 continue;
             }
 
-            var src = '';
-            if (currentNode.nodeName.toUpperCase() == 'IMG') {
-                src = currentNode.getAttribute('src');
-            } else {
-                var bgImg = win.getComputedStyle(currentNode).getPropertyValue('background-image'); // win.getComputedStyle 会引起重绘
-                var match = bgImg.match(/^url\(['"](.+\/\/.+)['"]\)$/);
-                src = match && match[1];
-            }
-
-            var protocol = _parseUrl(src).protocol;
-            if (src && protocol && protocol.indexOf('http') === 0) {
-                success(src);
+            var src = util._getImgSrcFromDom(currentNode);
+            
+            if (src) {
+                var protocol = _parseUrl(src).protocol;
+                if (protocol && protocol.indexOf('http') === 0) {
+                    success(src);
+                }
             }
 
             currentNode = nodeIterator.nextNode();
@@ -373,7 +364,7 @@ function generateApi() {
 
         var imgList = [];
 
-        _queryImages(function (currentNode) {
+        _queryImages(function(currentNode) {
             if (searchInFirstScreen) {
                 // 过滤函数，如果符合要求，返回 true
                 var boundingClientRect = currentNode.getBoundingClientRect();
@@ -396,16 +387,8 @@ function generateApi() {
                 if ((scrollTop + top) <= screenHeight && right >= 0 && left <= screenWidth) {
                     return true;
                 } else {
-                    var src = '';
-                    if (currentNode.nodeName.toUpperCase() == 'IMG') {
-                        src = currentNode.getAttribute('src');
-                    } else {
-                        var bgImg = win.getComputedStyle(currentNode).getPropertyValue('background-image'); // win.getComputedStyle 会引起重绘
-                        var match = bgImg.match(/^url\(['"](.+\/\/.+)['"]\)$/);
-                        src = match && match[1];
-                    }
                     global.ignoredImages.push({
-                        src: src,
+                        src: util._getImgSrcFromDom(currentNode),
                         screenHeight: screenHeight,
                         screenWidth: screenWidth,
                         scrollTop: scrollTop,
@@ -474,17 +457,17 @@ function generateApi() {
         global.options.onAllXhrResolved && global.options.onAllXhrResolved(targetDotObj.timeStamp);
 
         // 如果 target 时刻的图片已经加载完毕，则上报该信息中记录的完成时刻
-        _checkTargetDot(targetDotObj, 'onStopObserving');
+        _checkTargetDot(targetDotObj);
     }
 
-    function _checkTargetDot(dotObj, desc) {
+    function _checkTargetDot(dotObj) {
         if (dotObj.isTargetDot && dotObj.firstScreenTimeStamp !== -1) {
             // 轮询修正 domComplete 的值
             if (dotObj.firstScreenTimeStamp === 0) {
                 util.getDomCompleteTime(function (domCompleteStamp) {
                     dotObj.firstScreenTimeStamp = domCompleteStamp;
                     _runOnTargetDotFound(dotObj);
-                }, desc);
+                });
             } else {
                 _runOnTargetDotFound(dotObj);
             }
