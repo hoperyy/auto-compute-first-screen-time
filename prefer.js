@@ -237,30 +237,34 @@ function generateApi() {
         global.device.screenHeight = screenHeight;
         global.device.screenWidth = screenWidth;
 
+        var nodeIterator = util.queryAllNode();
+        var currentNode = nodeIterator.nextNode();
         var imgList = [];
 
-        _queryImages(function(currentNode) {
-            // 过滤函数，如果符合要求，返回 true
-            var boundingClientRect = currentNode.getBoundingClientRect();
+        var onImgSrcFound = function (imgSrc) {
+            var protocol = _parseUrl(imgSrc).protocol;
+            if (protocol && protocol.indexOf('http') === 0) {
+                // 去重
+                if (imgList.indexOf(src) === -1) {
+                    imgList.push(src);
+                }
+            }
+        }
 
-            // 如果已不显示（display: none），top 和 bottom 均为 0
-            if (!boundingClientRect.top && !boundingClientRect.bottom) {
-                return false;
+        while (currentNode) {
+            var imgSrc = util._getImgSrcFromDom(currentNode);
+
+            if (!imgSrc) {
+                currentNode = nodeIterator.nextNode();
+                continue;
             }
 
-            var scrollTop = doc.documentElement.scrollTop || doc.body.scrollTop;
-
-            var top = boundingClientRect.top; // getBoundingClientRect 会引起重绘
-            var left = boundingClientRect.left;
-            var right = boundingClientRect.right;
-
-            // 如果在结构上的首屏内（上下、左右）
-            if ((scrollTop + top) <= screenHeight && right >= 0 && left <= screenWidth) {
-                return true;
+            if (util.isInFirstScreen(currentNode)) {
+                onImgSrcFound(imgSrc);
             } else {
                 // 统计没有在首屏的图片信息
                 global.ignoredImages.push({
-                    src: util._getImgSrcFromDom(currentNode),
+                    src: imgSrc,
                     screenHeight: screenHeight,
                     screenWidth: screenWidth,
                     scrollTop: scrollTop,
@@ -271,12 +275,9 @@ function generateApi() {
                     horizontal: right >= 0 && left <= screenWidth
                 });
             }
-        }, function (src) {
-            // 去重
-            if (imgList.indexOf(src) === -1) {
-                imgList.push(src);
-            }
-        });
+
+            currentNode = nodeIterator.nextNode();
+        }
 
         return imgList;
     }

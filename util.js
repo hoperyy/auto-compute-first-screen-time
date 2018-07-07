@@ -22,7 +22,7 @@ module.exports = {
         if (dom.nodeName.toUpperCase() == 'IMG') {
             src = dom.getAttribute('src');
         } else {
-            var computedStyle = win.getComputedStyle(dom);
+            var computedStyle = window.getComputedStyle(dom);
             var bgImg = computedStyle.getPropertyValue('background-image') || computedStyle.getPropertyValue('background');
 
             var match = bgImg.match(/url\(.+\)/);
@@ -30,5 +30,39 @@ module.exports = {
         }
 
         return src;
+    },
+    isInFirstScreen: function (currentNode) {
+        var screenHeight = window.innerHeight;
+        var screenWidth = window.innerWidth;
+
+        // 过滤函数，如果符合要求，返回 true
+        var boundingClientRect = currentNode.getBoundingClientRect();
+
+        // 如果已不显示（display: none），top 和 bottom 均为 0
+        if (!boundingClientRect.top && !boundingClientRect.bottom) {
+            return false;
+        }
+
+        var scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+
+        var top = boundingClientRect.top; // getBoundingClientRect 会引起重绘
+        var left = boundingClientRect.left;
+        var right = boundingClientRect.right;
+
+        // 如果在结构上的首屏内（上下、左右）
+        if ((scrollTop + top) <= screenHeight && right >= 0 && left <= screenWidth) {
+            return true;
+        }
+
+        return false;
+    },
+    queryAllNode: function() {
+        return document.createNodeIterator(
+            document.body,
+            NodeFilter.SHOW_ELEMENT,
+            function (node) {
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        ); 
     }
 };

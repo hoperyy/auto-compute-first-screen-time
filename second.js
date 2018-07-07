@@ -324,9 +324,7 @@ function generateApi() {
         }
     }
 
-    function _queryImages(isMatch, success) {
-        var screenHeight = win.innerHeight;
-
+    function _queryImages(filter, onImgFound) {
         var nodeIterator = doc.createNodeIterator(
             doc.body,
             NodeFilter.SHOW_ELEMENT,
@@ -336,20 +334,25 @@ function generateApi() {
         );
 
         var currentNode = nodeIterator.nextNode();
-        var imgList = [];
+
+        // 遍历所有 dom
         while (currentNode) {
-            if (!isMatch(currentNode)) {
+            var imgSrc = util._getImgSrcFromDom(currentNode);
+
+            // 如果没有 imgSrc，则直接读取下一个 dom 的信息
+            if (!imgSrc) {
                 currentNode = nodeIterator.nextNode();
                 continue;
             }
 
-            var src = util._getImgSrcFromDom(currentNode);
-            
-            if (src) {
-                var protocol = _parseUrl(src).protocol;
-                if (protocol && protocol.indexOf('http') === 0) {
-                    success(src);
-                }
+            if (!filter(currentNode)) {
+                currentNode = nodeIterator.nextNode();
+                continue;
+            }
+
+            var protocol = _parseUrl(imgSrc).protocol;
+            if (protocol && protocol.indexOf('http') === 0) {
+                onImgFound(imgSrc);
             }
 
             currentNode = nodeIterator.nextNode();
@@ -362,33 +365,37 @@ function generateApi() {
 
         var searchInFirstScreen = param && param.searchInFirstScreen;
 
+        var nodeIterator = util.queryAllNode();
+        var currentNode = nodeIterator.nextNode();
         var imgList = [];
 
-        _queryImages(function(currentNode) {
-            if (searchInFirstScreen) {
-                // 过滤函数，如果符合要求，返回 true
-                var boundingClientRect = currentNode.getBoundingClientRect();
-
-                // 如果已不显示（display: none），top 和 bottom 均为 0
-                if (!boundingClientRect.top && !boundingClientRect.bottom) {
-                    return false;
+        var onImgSrcFound = function(imgSrc) {
+            var protocol = _parseUrl(imgSrc).protocol;
+            if (protocol && protocol.indexOf('http') === 0) {
+                // 去重
+                if (imgList.indexOf(src) === -1) {
+                    imgList.push(src);
                 }
+            }
+        }
 
-                var top = boundingClientRect.top; // getBoundingClientRect 会引起重绘
-                var left = boundingClientRect.left;
-                var right = boundingClientRect.right;
-                var scrollTop = doc.documentElement.scrollTop || doc.body.scrollTop;
+        // 遍历所有 dom
+        while (currentNode) {
+            var imgSrc = util._getImgSrcFromDom(currentNode);
 
-                // 写入设备信息，用于上报（这里只会执行一次）
-                global.device.screenHeight = screenHeight;
-                global.device.screenWidth = screenWidth;
+            // 如果没有 imgSrc，则直接读取下一个 dom 的信息
+            if (!imgSrc) {
+                currentNode = nodeIterator.nextNode();
+                continue;
+            }
 
-                // 如果在结构上的首屏内
-                if ((scrollTop + top) <= screenHeight && right >= 0 && left <= screenWidth) {
-                    return true;
+            if (searchInFirstScreen) {
+                if (util.isInFirstScreen(currentNode)) {
+                    onImgSrcFound(imgSrc);
                 } else {
+                    // 用于统计
                     global.ignoredImages.push({
-                        src: util._getImgSrcFromDom(currentNode),
+                        src: imgSrc,
                         screenHeight: screenHeight,
                         screenWidth: screenWidth,
                         scrollTop: scrollTop,
@@ -400,14 +407,11 @@ function generateApi() {
                     });
                 }
             } else {
-                return true;
+                onImgSrcFound(imgSrc);
             }
-        }, function (src) {
-            // 去重
-            if (imgList.indexOf(src) === -1) {
-                imgList.push(src);
-            }
-        });
+            
+            currentNode = nodeIterator.nextNode();
+        }
 
         return imgList;
     }
