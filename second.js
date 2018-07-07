@@ -8,7 +8,7 @@ var doc = win.document;
 var util = require('./util');
 
 function generateApi() {
-    var global = util.mergeGlobal(util.initGlobal(), {
+    var _global = util.mergeGlobal(util.initGlobal(), {
         intervalDotTimer: null,
 
         // dom 变化监听器
@@ -23,7 +23,7 @@ function generateApi() {
         // 记录图片加载完成的时刻（唯一）
         imgMap: {},
 
-        // 用于记录两次 global.mutationObserver 回调触发的时间间隔
+        // 用于记录两次 _global.mutationObserver 回调触发的时间间隔
         lastDomUpdateTime: scriptStartTime,
 
         options: {
@@ -36,7 +36,7 @@ function generateApi() {
 
     function _getTargetDotObj() {
         // 倒序
-        global.dotList.sort(function (a, b) {
+        _global.dotList.sort(function (a, b) {
             if (a.timeStamp < b.timeStamp) {
                 return 1;
             } else {
@@ -44,10 +44,10 @@ function generateApi() {
             }
         });
 
-        var dotList = global.dotList.slice(1);
+        var dotList = _global.dotList.slice(1);
 
         // 获取当前时刻的 dom 信息，作为基准值
-        var finalImages = global.dotList[0].firstScreenImages;
+        var finalImages = _global.dotList[0].firstScreenImages;
 
         var targetInfo;
 
@@ -70,7 +70,7 @@ function generateApi() {
             }
         } else {
             // 如果最终状态没有图片，则取出当前打点的对象，首屏时间设置为 performance 值
-            targetInfo = global.dotList[0];
+            targetInfo = _global.dotList[0];
             targetInfo.firstScreenTimeStamp = performance.timing.domComplete; // 有 bug，过早获取时该值可能为 0
             targetInfo.firstScreenTime = performance.timing.domComplete - util.NAV_START_TIME;
         }
@@ -86,7 +86,7 @@ function generateApi() {
         var timeArr = [];
 
         images.forEach(function (src) {
-            timeArr.push(global.imgMap[src].onloadTimeStamp);
+            timeArr.push(_global.imgMap[src].onloadTimeStamp);
         });
 
         // 倒序
@@ -102,22 +102,22 @@ function generateApi() {
     }
 
     function _runOnTargetDotFound(targetObj) {
-        if (global.hasReported) {
+        if (_global.hasReported) {
             return;
         }
 
-        global.hasReported = true;
+        _global.hasReported = true;
 
-        // 为 global.imgMap 添加是否是首屏标志
+        // 为 _global.imgMap 添加是否是首屏标志
         var targetFirstScreenImages = null;
         var firstScreenImages = [];
         var i;
         var len;
         var requests = [];
 
-        for (i = 0, len = global.dotList.length; i < len; i++) {
-            if (global.dotList[i].isTargetDot) {
-                targetFirstScreenImages = global.dotList[i].firstScreenImages;
+        for (i = 0, len = _global.dotList.length; i < len; i++) {
+            if (_global.dotList[i].isTargetDot) {
+                targetFirstScreenImages = _global.dotList[i].firstScreenImages;
                 break;
             }
         }
@@ -130,16 +130,16 @@ function generateApi() {
 
         // 计算性能监控计算的耗时
         var delayFirstScreen = 0;
-        for (i = 0, len = global.dotList.length; i < len; i++) {
-            if (global.dotList[i].duration) {
-                if (global.dotList[i].timeStamp <= targetObj.timeStamp) {
-                    delayFirstScreen += global.dotList[i].duration;
+        for (i = 0, len = _global.dotList.length; i < len; i++) {
+            if (_global.dotList[i].duration) {
+                if (_global.dotList[i].timeStamp <= targetObj.timeStamp) {
+                    delayFirstScreen += _global.dotList[i].duration;
                 }
             }
         }
 
         // 规范化 requests
-        for (var requestKey in global.requestDetails) {
+        for (var requestKey in _global.requestDetails) {
             var parsedRequestKey = requestKey
                 .split(">time")[0]
                 .replace(/^http(s)?:/, "")
@@ -150,10 +150,10 @@ function generateApi() {
         // 最终呈现给用户的首屏信息对象
         _runOnTimeFound({
             maxErrorTime: targetObj.blankTime, // 最大误差值
-            dotList: global.dotList,
+            dotList: _global.dotList,
 
-            delayAll: global.delayAll,
-            requests: util.transRequestDetails2Arr(global),
+            delayAll: _global.delayAll,
+            requests: util.transRequestDetails2Arr(_global),
             firstScreenTime: targetObj.firstScreenTimeStamp - util.NAV_START_TIME,
             firstScreenTimeStamp: targetObj.firstScreenTimeStamp,
             firstScreenImages: targetObj.firstScreenImages,
@@ -163,12 +163,12 @@ function generateApi() {
         });
     }
 
-    // 记录运行该方法时刻的 dom 信息，主要是 images；运行时机为每次 global.mutationObserver 回调触发或定时器触发
+    // 记录运行该方法时刻的 dom 信息，主要是 images；运行时机为每次 _global.mutationObserver 回调触发或定时器触发
     function recordDomInfo(param) {
         var recordFirstScreen = param && param.recordFirstScreen;
 
         // 如果性能监控打点引发的渲染 delay 超过了 0.5s，则停止性能监控打点
-        if (!recordFirstScreen && global.delayAll >= global.options.abortTimeWhenDelay) {
+        if (!recordFirstScreen && _global.delayAll >= _global.options.abortTimeWhenDelay) {
             return;
         }
 
@@ -178,7 +178,7 @@ function generateApi() {
 
         var recordEndTime = util.getTime();
 
-        global.delayAll += recordEndTime - recordStartTime;
+        _global.delayAll += recordEndTime - recordStartTime;
 
         var dotObj = {
             isImgInFirstScreen: recordFirstScreen,
@@ -187,15 +187,15 @@ function generateApi() {
 
             firstScreenImages: firstScreenImages,
             firstScreenImagesLength: firstScreenImages.length,
-            blankTime: util.getTime() - global.lastDomUpdateTime || util.getTime(), // 距离上次记录有多久（用于调试）
+            blankTime: util.getTime() - _global.lastDomUpdateTime || util.getTime(), // 距离上次记录有多久（用于调试）
             firstScreenTimeStamp: -1, // 当前时刻下，所有图片加载完毕的时刻
             timeStamp: recordStartTime, // 当前时刻
             duration: recordEndTime - recordStartTime,
         };
 
-        global.dotList.push(dotObj);
+        _global.dotList.push(dotObj);
 
-        global.lastDomUpdateTime = recordEndTime;
+        _global.lastDomUpdateTime = recordEndTime;
 
         // 如果没有图片，则以 domComplete 的时间为准（有可能值为 0）
         if (!firstScreenImages.length) {
@@ -224,7 +224,7 @@ function generateApi() {
             };
 
             firstScreenImages.forEach(function (src) {
-                if (global.imgMap[src]) {
+                if (_global.imgMap[src]) {
                     afterDownload(src);
                 } else {
                     var img = new Image();
@@ -232,15 +232,15 @@ function generateApi() {
 
                     if (img.complete) {
                         // 记录该图片加载完成的时间，以最早那次为准
-                        if (!global.imgMap[src]) {
-                            global.imgMap[src] = generateGlobalImgMapResult();
+                        if (!_global.imgMap[src]) {
+                            _global.imgMap[src] = generateGlobalImgMapResult();
                         }
                         afterDownload(src);
                     } else {
                         img.onload = img.onerror = function () {
                             // 记录该图片加载完成的时间，以最早那次为准
-                            if (!global.imgMap[src]) {
-                                global.imgMap[src] = generateGlobalImgMapResult();
+                            if (!_global.imgMap[src]) {
+                                _global.imgMap[src] = generateGlobalImgMapResult();
                             }
                             afterDownload(src);
                         };
@@ -320,7 +320,7 @@ function generateApi() {
                     onImgSrcFound(imgSrc);
                 } else {
                     // 用于统计
-                    global.ignoredImages.push({
+                    _global.ignoredImages.push({
                         src: imgSrc,
                         screenHeight: screenHeight,
                         screenWidth: screenWidth,
@@ -343,29 +343,29 @@ function generateApi() {
     }
 
     function _runOnTimeFound(reportObj) {
-        reportObj.ignoredImages = global.ignoredImages;
-        reportObj.device = global.device;
+        reportObj.ignoredImages = _global.ignoredImages;
+        reportObj.device = _global.device;
 
-        global.options.onTimeFound(reportObj);
+        _global.options.onTimeFound(reportObj);
     }
 
     function onStopObserving() {
-        if (global.hasStoppedObserve) {
+        if (_global.hasStoppedObserve) {
             return;
         }
-        global.hasStoppedObserve = true;
+        _global.hasStoppedObserve = true;
 
-        if (global.mutationObserver) {
-            global.mutationObserver.disconnect();
+        if (_global.mutationObserver) {
+            _global.mutationObserver.disconnect();
         }
 
-        clearInterval(global.intervalDotTimer);
+        clearInterval(_global.intervalDotTimer);
 
         // 记录当前时刻 dom 信息，且当前时刻为首屏图片数量等稳定的时刻
         recordDomInfo({ recordFirstScreen: true });
 
         // 向前递推，找到离稳定状态最近的渲染变动时刻
-        var targetDotObj = _getTargetDotObj(global.dotList);
+        var targetDotObj = _getTargetDotObj(_global.dotList);
 
         if (!targetDotObj) {
             console.log('[auto-compute-first-screen-time] no suitable time found.');
@@ -373,10 +373,10 @@ function generateApi() {
                 firstScreenTime: -1,
                 firstScreenTimeStamp: -1,
                 maxErrorTime: -1,
-                requests: util.transRequestDetails2Arr(global),
-                dotList: global.dotList,
+                requests: util.transRequestDetails2Arr(_global),
+                dotList: _global.dotList,
                 firstScreenImages: _getImages({ searchInFirstScreen: true }),
-                delayAll: global.delayAll,
+                delayAll: _global.delayAll,
                 delayFirstScreen: -1,
                 type: 'none'
             });
@@ -384,7 +384,7 @@ function generateApi() {
         }
 
         // 触发事件：所有异步请求已经发布完毕
-        global.options.onAllXhrResolved && global.options.onAllXhrResolved(targetDotObj.timeStamp);
+        _global.options.onAllXhrResolved && _global.options.onAllXhrResolved(targetDotObj.timeStamp);
 
         // 如果 target 时刻的图片已经加载完毕，则上报该信息中记录的完成时刻
         _checkTargetDot(targetDotObj);
@@ -406,7 +406,7 @@ function generateApi() {
 
     // 插入脚本，用于获取脚本运行完成时间，这个时间用于获取当前页面是否有异步请求发出
     function insertTestTimeScript() {
-        util.insertTestTimeScript(onStopObserving, global);
+        util.insertTestTimeScript(onStopObserving, _global);
     }
 
     // 监听 dom 变化，脚本运行时就开始
@@ -415,7 +415,7 @@ function generateApi() {
 
         var dotCallback = function (param) {
             var now = util.getTime();
-            if (lastObserverRunTime && now - lastObserverRunTime < global.options.dotDelay) {
+            if (lastObserverRunTime && now - lastObserverRunTime < _global.options.dotDelay) {
                 return;
             }
 
@@ -425,15 +425,15 @@ function generateApi() {
         };
 
         // 记录首屏 DOM 的变化
-        global.intervalDotTimer = setInterval(function () {
+        _global.intervalDotTimer = setInterval(function () {
             dotCallback({ isFromInternal: true });
-        }, global.options.dotDelay);
+        }, _global.options.dotDelay);
 
         if (window.MutationObserver) {
-            global.mutationObserver = new window.MutationObserver(function () {
+            _global.mutationObserver = new window.MutationObserver(function () {
                 dotCallback({ mutation: true });
             });
-            global.mutationObserver.observe(document.body, {
+            _global.mutationObserver.observe(document.body, {
                 childList: true,
                 subtree: true
             });
@@ -444,11 +444,11 @@ function generateApi() {
     }
 
     function overrideRequest() {
-        util.overrideRequest(global, onStopObserving);
+        util.overrideRequest(_global, onStopObserving);
     }
 
     function mergeUserOptions(userOptions) {
-        util.mergeUserOptions(global, userOptions);
+        util.mergeUserOptions(_global, userOptions);
     }
 
     return {
