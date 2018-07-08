@@ -137,11 +137,11 @@ function generateApi() {
         var imgList = [];
 
         var onImgSrcFound = function (imgSrc) {
-            var protocol = _parseUrl(imgSrc).protocol;
+            var protocol = util.parseUrl(imgSrc).protocol;
             if (protocol && protocol.indexOf('http') === 0) {
                 // 去重
-                if (imgList.indexOf(src) === -1) {
-                    imgList.push(src);
+                if (imgList.indexOf(imgSrc) === -1) {
+                    imgList.push(imgSrc);
                 }
             }
         }
@@ -154,20 +154,23 @@ function generateApi() {
                 continue;
             }
 
+            util.recordCurrentPos(currentNode);
+
             if (util.isInFirstScreen(currentNode)) {
                 onImgSrcFound(imgSrc);
             } else {
+                var currentPos = util.currentPos;
                 // 统计没有在首屏的图片信息
                 _global.ignoredImages.push({
                     src: imgSrc,
                     screenHeight: screenHeight,
                     screenWidth: screenWidth,
-                    scrollTop: scrollTop,
-                    top: top,
-                    vertical: (scrollTop + top) <= screenHeight,
-                    left: left,
-                    right: right,
-                    horizontal: right >= 0 && left <= screenWidth
+                    scrollTop: currentPos.scrollTop,
+                    top: currentPos.top,
+                    vertical: (currentPos.scrollTop + currentPos.top) <= screenHeight,
+                    left: currentPos.left,
+                    right: currentPos.right,
+                    horizontal: currentPos.right >= 0 && currentPos.left <= screenWidth
                 });
             }
 
@@ -183,7 +186,7 @@ function generateApi() {
     }
 
     function overrideRequest() {
-        util.overrideRequest(_global, onStopObserving);
+        util.overrideRequest(_global, runOnPageStable);
     }
 
     function mergeUserOptions(userOptions) {

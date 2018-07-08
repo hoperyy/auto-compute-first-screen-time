@@ -124,7 +124,7 @@ function generateApi() {
 
         if (targetFirstScreenImages) {
             for (i = 0, len = targetFirstScreenImages.length; i < len; i++) {
-                firstScreenImages.push(targetFirstScreenImages[i].replace(/^http(s)?:/, "").replace(/^\/\//, ""));
+                firstScreenImages.push(targetFirstScreenImages[i].replace(/^http(s)?:/, '').replace(/^\/\//, ''));
             }
         }
 
@@ -141,9 +141,9 @@ function generateApi() {
         // 规范化 requests
         for (var requestKey in _global.requestDetails) {
             var parsedRequestKey = requestKey
-                .split(">time")[0]
-                .replace(/^http(s)?:/, "")
-                .replace(/^\/\//, "");
+                .split('>time')[0]
+                .replace(/^http(s)?:/, '')
+                .replace(/^\/\//, '');
             requests.push(parsedRequestKey);
         }
 
@@ -250,41 +250,6 @@ function generateApi() {
         }
     }
 
-    function _queryImages(filter, onImgFound) {
-        var nodeIterator = doc.createNodeIterator(
-            doc.body,
-            NodeFilter.SHOW_ELEMENT,
-            function (node) {
-                return NodeFilter.FILTER_ACCEPT;
-            }
-        );
-
-        var currentNode = nodeIterator.nextNode();
-
-        // 遍历所有 dom
-        while (currentNode) {
-            var imgSrc = util._getImgSrcFromDom(currentNode);
-
-            // 如果没有 imgSrc，则直接读取下一个 dom 的信息
-            if (!imgSrc) {
-                currentNode = nodeIterator.nextNode();
-                continue;
-            }
-
-            if (!filter(currentNode)) {
-                currentNode = nodeIterator.nextNode();
-                continue;
-            }
-
-            var protocol = _parseUrl(imgSrc).protocol;
-            if (protocol && protocol.indexOf('http') === 0) {
-                onImgFound(imgSrc);
-            }
-
-            currentNode = nodeIterator.nextNode();
-        }
-    }
-
     function _getImages(param) {
         var screenHeight = win.innerHeight;
         var screenWidth = win.innerWidth;
@@ -299,8 +264,8 @@ function generateApi() {
             var protocol = util.parseUrl(imgSrc).protocol;
             if (protocol && protocol.indexOf('http') === 0) {
                 // 去重
-                if (imgList.indexOf(src) === -1) {
-                    imgList.push(src);
+                if (imgList.indexOf(imgSrc) === -1) {
+                    imgList.push(imgSrc);
                 }
             }
         }
@@ -315,21 +280,24 @@ function generateApi() {
                 continue;
             }
 
+            util.recordCurrentPos(currentNode);
+
             if (searchInFirstScreen) {
                 if (util.isInFirstScreen(currentNode)) {
                     onImgSrcFound(imgSrc);
                 } else {
+                    var currentPos = util.currentPos;
                     // 用于统计
                     _global.ignoredImages.push({
                         src: imgSrc,
                         screenHeight: screenHeight,
                         screenWidth: screenWidth,
-                        scrollTop: scrollTop,
-                        top: top,
-                        vertical: (scrollTop + top) <= screenHeight,
-                        left: left,
-                        right: right,
-                        horizontal: right >= 0 && left <= screenWidth
+                        scrollTop: currentPos.scrollTop,
+                        top: currentPos.top,
+                        vertical: (currentPos.scrollTop + currentPos.top) <= screenHeight,
+                        left: currentPos.left,
+                        right: currentPos.right,
+                        horizontal: currentPos.right >= 0 && currentPos.left <= screenWidth
                     });
                 }
             } else {
