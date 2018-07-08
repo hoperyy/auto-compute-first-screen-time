@@ -28,28 +28,53 @@ module.exports = {
             var bgImg = computedStyle.getPropertyValue('background-image') || computedStyle.getPropertyValue('background');
 
             var match = bgImg.match(/url\(.+\)/);
-            src = match && match[1];
+            var str = match && match[0];
+            if (str) {
+                str = str.replace(/^url\(\"?/, '').replace(/\"?\)$/, '');
+
+                if (/^http/.test(str) || /^\/\//.test(str)) {
+                    src = str;
+                }
+            }
         }
 
         return src;
     },
-    isInFirstScreen: function (currentNode) {
-        var screenHeight = window.innerHeight;
-        var screenWidth = window.innerWidth;
 
-        // 过滤函数，如果符合要求，返回 true
+    currentPos: {
+        scrollTop: 0,
+        top: 0,
+        left: 0,
+        right: 0,
+    },
+
+    recordCurrentPos: function(currentNode) {
         var boundingClientRect = currentNode.getBoundingClientRect();
-
-        // 如果已不显示（display: none），top 和 bottom 均为 0
-        if (!boundingClientRect.top && !boundingClientRect.bottom) {
-            return false;
-        }
-
         var scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
 
         var top = boundingClientRect.top; // getBoundingClientRect 会引起重绘
         var left = boundingClientRect.left;
         var right = boundingClientRect.right;
+
+        this.currentPos.scrollTop = scrollTop;
+        this.currentPos.top = top;
+        this.currentPos.left = left;
+        this.currentPos.right = right;
+    },
+
+    isInFirstScreen: function (currentNode) {
+        // 如果已不显示（display: none），top 和 bottom 均为 0
+        if (!this.currentPos.top && !this.currentPos.bottom) {
+            return false;
+        }
+
+        var screenHeight = window.innerHeight;
+        var screenWidth = window.innerWidth;
+
+        var scrollTop = this.currentPos.scrollTop;
+        var top = this.currentPos.top; // getBoundingClientRect 会引起重绘
+        var left = this.currentPos.left;
+        var right = this.currentPos.right;
 
         // 如果在结构上的首屏内（上下、左右）
         if ((scrollTop + top) <= screenHeight && right >= 0 && left <= screenWidth) {
