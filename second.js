@@ -254,6 +254,13 @@ function generateApi() {
         var screenHeight = win.innerHeight;
         var screenWidth = win.innerWidth;
 
+        if (!_global.device.screenWidth) {
+            _global.device.screenWidth = screenWidth;
+        }
+        if (!_global.device.screenHeight) {
+            _global.device.screenHeight = screenHeight;
+        }
+
         var searchInFirstScreen = param && param.searchInFirstScreen;
 
         var nodeIterator = util.queryAllNode();
@@ -294,6 +301,7 @@ function generateApi() {
                         screenWidth: screenWidth,
                         scrollTop: currentPos.scrollTop,
                         top: currentPos.top,
+                        bottom: currentPos.bottom,
                         vertical: (currentPos.scrollTop + currentPos.top) <= screenHeight,
                         left: currentPos.left,
                         right: currentPos.right,

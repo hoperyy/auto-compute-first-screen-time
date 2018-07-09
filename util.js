@@ -44,8 +44,9 @@ module.exports = {
     currentPos: {
         scrollTop: 0,
         top: 0,
+        bottom: 0,
         left: 0,
-        right: 0,
+        right: 0
     },
 
     recordCurrentPos: function(currentNode) {
@@ -53,11 +54,13 @@ module.exports = {
         var scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
 
         var top = boundingClientRect.top; // getBoundingClientRect 会引起重绘
+        var bottom = boundingClientRect.bottom;
         var left = boundingClientRect.left;
         var right = boundingClientRect.right;
 
         this.currentPos.scrollTop = scrollTop;
         this.currentPos.top = top;
+        this.currentPos.bottom = bottom;
         this.currentPos.left = left;
         this.currentPos.right = right;
     },
