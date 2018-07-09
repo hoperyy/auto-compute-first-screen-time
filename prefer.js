@@ -48,6 +48,7 @@ function generateApi(recordType) {
             delayFirstScreen: endTime - startTime,
             firstScreenTime: -1, // 需要被覆盖的
             firstScreenTimeStamp: -1, // 需要被覆盖的
+            version: util.version
         };
 
         if (!firstScreenImages.length) {
