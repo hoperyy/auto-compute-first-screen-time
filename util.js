@@ -134,7 +134,7 @@ module.exports = {
 
         return requests;
     },
-    
+
     formateUrl: function(url) {
         return url.replace(/^http(s)?\:/, '').replace(/^\/\//, '');
     },
@@ -177,7 +177,7 @@ module.exports = {
                 delayReport: 500,
 
                 // onload 之后延时一段时间，如果到期后仍然没有异步请求发出，则认为是纯静态页面
-                watingTimeWhenDefineStaticPage: 2000,
+                watingTimeWhenDefineStaticPage: 5000,
 
                 img: [/(\.)(png|jpg|jpeg|gif|webp)/i] // 匹配图片的正则表达式
             }
