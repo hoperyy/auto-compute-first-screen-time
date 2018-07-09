@@ -1,4 +1,6 @@
 module.exports = {
+    version: '4.1.12',
+
     NAV_START_TIME: window.performance.timing.navigationStart,
 
     getDomCompleteTime: function(callback) {
@@ -13,7 +15,7 @@ module.exports = {
             }
         };
         // 轮询获取 domComplete 的值，最多轮询 10 次
-        var modifyDomCompleteTimer = setInterval(handler, 1000);
+        var modifyDomCompleteTimer = setInterval(handler, 500);
 
         handler();
     },
