@@ -55,7 +55,10 @@ function generateApi(recordType) {
         if (!firstScreenImages.length) {
             util.getDomCompleteTime(function (domCompleteStamp) {
                 resultObj.firstScreenTimeStamp = domCompleteStamp;
-                resultObj.firstScreenTime = domCompleteStamp - util.NAV_START_TIME; 
+                resultObj.firstScreenTime = domCompleteStamp - util.NAV_START_TIME;
+
+                // 添加额外字段用于调试
+                resultObj.reportDetail = 'perf-no-image';
                 _runOnTimeFound(resultObj);
             });
         } else {
@@ -109,6 +112,8 @@ function generateApi(recordType) {
                     resultObj.firstScreenTime = parseInt(imgLoadTimeArr[0].responeEnd);
                     resultObj.firstScreenTimeStamp = parseInt(imgLoadTimeArr[0].responeEnd) + util.NAV_START_TIME;
 
+                    // 添加额外字段用于调试
+                    resultObj.reportDetail = 'perf-has-images';
                     _runOnTimeFound(resultObj);
                 }
 
