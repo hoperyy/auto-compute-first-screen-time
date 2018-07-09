@@ -1,4 +1,6 @@
 module.exports = {
+    version: '4.1.11',
+
     NAV_START_TIME: window.performance.timing.navigationStart,
 
     getDomCompleteTime: function(callback) {

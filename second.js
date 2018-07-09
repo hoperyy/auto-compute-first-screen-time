@@ -162,7 +162,8 @@ function generateApi(recordType) {
             firstScreenImages: targetObj.firstScreenImages,
             firstScreenImagesLength: targetObj.firstScreenImages.length,
             delayFirstScreen: delayFirstScreen,
-            type: 'dot'
+            type: 'dot',
+            version: util.version
         };
         _runOnTimeFound(resultObj);
     }
@@ -358,7 +359,9 @@ function generateApi(recordType) {
                 firstScreenImages: _getImages({ searchInFirstScreen: true }),
                 delayAll: _global.delayAll,
                 delayFirstScreen: -1,
-                type: 'none'
+                type: 'none',
+                isStaticPage: _global.isFirstRequestSent ? false : (_global.recordType === 'auto' ? true : 'unknown'),
+                version: util.version
             });
             return;
         }
