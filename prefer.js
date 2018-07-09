@@ -12,14 +12,14 @@ function generateApi(recordType) {
         recordType: recordType
     });
 
-    function runOnPageStable() {
+    function runOnPageStable(reportDesc) {
         if (_global.hasReported) {
             return;
         }
 
         _global.hasReported = true;
 
-        _recordFirstScreenInfo();
+        _recordFirstScreenInfo(reportDesc);
     }
 
     function _runOnTimeFound(resultObj) {
@@ -31,7 +31,7 @@ function generateApi(recordType) {
     }
  
     // 重操作：记录运行该方法时刻的 dom 信息，主要是 images
-    function _recordFirstScreenInfo() {
+    function _recordFirstScreenInfo(reportDesc) {
         var startTime =  util.getTime();
         var firstScreenImages = _getImagesInFirstScreen().map(util.formateUrl);
         var endTime = util.getTime();
@@ -49,7 +49,8 @@ function generateApi(recordType) {
             firstScreenTime: -1, // 需要被覆盖的
             firstScreenTimeStamp: -1, // 需要被覆盖的
             version: util.version,
-            runtime: util.getTime() - scriptStartTime
+            runtime: util.getTime() - scriptStartTime,
+            reportDesc: reportDesc
         };
 
         if (!firstScreenImages.length) {
@@ -184,11 +185,15 @@ function generateApi(recordType) {
 
     // 插入脚本，用于获取脚本运行完成时间，这个时间用于获取当前页面是否有异步请求发出
     function insertTestTimeScript() {
-        util.insertTestTimeScript(runOnPageStable, _global);
+        util.insertTestTimeScript(function() {
+            runOnPageStable('perf-auto-timeout');   
+        }, _global);
     }
 
     function overrideRequest() {
-        util.overrideRequest(_global, runOnPageStable);
+        util.overrideRequest(_global, function () {
+            runOnPageStable('perf-auto-request-end');
+        });
     }
 
     function mergeUserOptions(userOptions) {
@@ -213,6 +218,6 @@ module.exports = {
     hand: function (userOptions) {
         var api = generateApi('hand');
         api.mergeUserOptions(userOptions);
-        api.runOnPageStable();
+        api.runOnPageStable('perf-hand');
     }
 }

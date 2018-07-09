@@ -103,7 +103,7 @@ function generateApi(recordType) {
         return timeArr[0];
     }
 
-    function _runOnTargetDotFound(targetObj) {
+    function _runOnTargetDotFound(targetObj, reportDesc) {
         if (_global.hasReported) {
             return;
         }
@@ -164,7 +164,8 @@ function generateApi(recordType) {
             delayFirstScreen: delayFirstScreen,
             type: 'dot',
             version: util.version,
-            runtime: util.getTime() - scriptStartTime
+            runtime: util.getTime() - scriptStartTime,
+            reportDesc: reportDesc
         };
         _runOnTimeFound(resultObj);
     }
@@ -206,7 +207,7 @@ function generateApi(recordType) {
         // 如果没有图片，则以 domComplete 的时间为准（有可能值为 0）
         if (!firstScreenImages.length) {
             dotObj.firstScreenTimeStamp = performance.timing.domComplete;
-            _checkTargetDot(dotObj);
+            _checkTargetDot(dotObj, 'dot-no-image');
         } else {
             var imgIndex = 0;
             var afterDownload = function (src) {
@@ -217,7 +218,7 @@ function generateApi(recordType) {
                     dotObj.firstScreenTimeStamp = _getLastImgDownloadTime(firstScreenImages);
 
                     // 检查是否是目标打点
-                    _checkTargetDot(dotObj);
+                    _checkTargetDot(dotObj, 'dot-has-images');
                 }
             };
 
@@ -331,7 +332,7 @@ function generateApi(recordType) {
         _global.options.onTimeFound(reportObj);
     }
 
-    function onStopObserving() {
+    function onStopObserving(reportDesc) {
         if (_global.hasStoppedObserve) {
             return;
         }
@@ -365,7 +366,7 @@ function generateApi(recordType) {
                 version: util.version,
                 runtime: util.getTime() - scriptStartTime,
                 // 添加额外字段用于调试
-                reportDetail: 'dot-no-target'
+                reportDesc: 'dot-no-target'
             });
             return;
         }
@@ -374,26 +375,28 @@ function generateApi(recordType) {
         _global.options.onAllXhrResolved && _global.options.onAllXhrResolved(targetDotObj.timeStamp);
 
         // 如果 target 时刻的图片已经加载完毕，则上报该信息中记录的完成时刻
-        _checkTargetDot(targetDotObj);
+        _checkTargetDot(targetDotObj, reportDesc);
     }
 
-    function _checkTargetDot(dotObj) {
+    function _checkTargetDot(dotObj, reportDesc) {
         if (dotObj.isTargetDot && dotObj.firstScreenTimeStamp !== -1) {
             // 轮询修正 domComplete 的值
             if (dotObj.firstScreenTimeStamp === 0) {
                 util.getDomCompleteTime(function (domCompleteStamp) {
                     dotObj.firstScreenTimeStamp = domCompleteStamp;
-                    _runOnTargetDotFound(dotObj);
+                    _runOnTargetDotFound(dotObj, reportDesc);
                 });
             } else {
-                _runOnTargetDotFound(dotObj);
+                _runOnTargetDotFound(dotObj, reportDesc);
             }
         }
     }
 
     // 插入脚本，用于获取脚本运行完成时间，这个时间用于获取当前页面是否有异步请求发出
     function insertTestTimeScript() {
-        util.insertTestTimeScript(onStopObserving, _global);
+        util.insertTestTimeScript(function() {
+            onStopObserving('dot-timeout');
+        }, _global);
     }
 
     // 监听 dom 变化，脚本运行时就开始
@@ -431,7 +434,9 @@ function generateApi(recordType) {
     }
 
     function overrideRequest() {
-        util.overrideRequest(_global, onStopObserving);
+        util.overrideRequest(_global, function () {
+            onStopObserving('dot-request-end');
+        });
     }
 
     function mergeUserOptions(userOptions) {
