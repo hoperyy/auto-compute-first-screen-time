@@ -164,7 +164,9 @@ function generateApi(recordType) {
             delayFirstScreen: delayFirstScreen,
             type: 'dot',
             version: util.version,
-            runtime: util.getTime() - scriptStartTime
+            runtime: util.getTime() - scriptStartTime,
+            // 添加额外字段用于调试
+            reportDetail: 'dot-target'
         };
         _runOnTimeFound(resultObj);
     }
@@ -363,7 +365,9 @@ function generateApi(recordType) {
                 type: 'none',
                 isStaticPage: _global.isFirstRequestSent ? false : (_global.recordType === 'auto' ? true : 'unknown'),
                 version: util.version,
-                runtime: util.getTime() - scriptStartTime
+                runtime: util.getTime() - scriptStartTime,
+                // 添加额外字段用于调试
+                reportDetail: 'dot-no-target'
             });
             return;
         }
