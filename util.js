@@ -30,7 +30,7 @@ module.exports = {
             var match = bgImg.match(/url\(.+\)/);
             var str = match && match[0];
             if (str) {
-                str = str.replace(/^url\(\"?/, '').replace(/\"?\)$/, '');
+                str = str.replace(/^url\([\'\"]?/, '').replace(/[\'\"]?\)$/, '');
 
                 if (/^http/.test(str) || /^\/\//.test(str)) {
                     src = str;
