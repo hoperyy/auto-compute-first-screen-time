@@ -164,9 +164,7 @@ function generateApi(recordType) {
             delayFirstScreen: delayFirstScreen,
             type: 'dot',
             version: util.version,
-            runtime: util.getTime() - scriptStartTime,
-            // 添加额外字段用于调试
-            reportDetail: 'dot-target'
+            runtime: util.getTime() - scriptStartTime
         };
         _runOnTimeFound(resultObj);
     }
