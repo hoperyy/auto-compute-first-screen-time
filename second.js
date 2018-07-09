@@ -7,7 +7,7 @@ var win = window;
 var doc = win.document;
 var util = require('./util');
 
-function generateApi() {
+function generateApi(recordType) {
     var _global = util.mergeGlobal(util.initGlobal(), {
         intervalDotTimer: null,
 
@@ -19,6 +19,8 @@ function generateApi() {
 
         // 记录 Mutation 回调时的 dom 信息
         dotList: [],
+
+        recordType: recordType,
 
         // 记录图片加载完成的时刻（唯一）
         imgMap: {},
@@ -148,10 +150,11 @@ function generateApi() {
         }
 
         // 最终呈现给用户的首屏信息对象
-        _runOnTimeFound({
+        var resultObj = {
             maxErrorTime: targetObj.blankTime, // 最大误差值
             dotList: _global.dotList,
 
+            isStaticPage: _global.isFirstRequestSent ? false : (_global.recordType === 'auto' ? true : 'unknown'),
             delayAll: _global.delayAll,
             requests: util.transRequestDetails2Arr(_global),
             firstScreenTime: targetObj.firstScreenTimeStamp - util.NAV_START_TIME,
@@ -160,7 +163,8 @@ function generateApi() {
             firstScreenImagesLength: targetObj.firstScreenImages.length,
             delayFirstScreen: delayFirstScreen,
             type: 'dot'
-        });
+        };
+        _runOnTimeFound(resultObj);
     }
 
     // 记录运行该方法时刻的 dom 信息，主要是 images；运行时机为每次 _global.mutationObserver 回调触发或定时器触发
@@ -279,7 +283,7 @@ function generateApi() {
 
         // 遍历所有 dom
         while (currentNode) {
-            var imgSrc = util._getImgSrcFromDom(currentNode);
+            var imgSrc = util.getImgSrcFromDom(currentNode, _global.options.img);
 
             // 如果没有 imgSrc，则直接读取下一个 dom 的信息
             if (!imgSrc) {
@@ -438,7 +442,7 @@ function generateApi() {
 
 module.exports = {
     auto: function(userOptions) {
-        var api = generateApi();
+        var api = generateApi('auto');
 
         api.mergeUserOptions(userOptions);
         api.insertTestTimeScript();
@@ -446,7 +450,7 @@ module.exports = {
         api.overrideRequest();
     },
     hand: function(userOptions) {
-        var api = generateApi();
+        var api = generateApi('hand');
         
         api.mergeUserOptions(userOptions);
         api.recordDomInfo({

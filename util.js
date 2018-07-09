@@ -18,7 +18,7 @@ module.exports = {
         handler();
     },
 
-    _getImgSrcFromDom: function (dom) {
+    getImgSrcFromDom: function (dom, imgFilter) {
         var src;
 
         if (dom.nodeName.toUpperCase() == 'IMG') {
@@ -32,13 +32,23 @@ module.exports = {
             if (str) {
                 str = str.replace(/^url\([\'\"]?/, '').replace(/[\'\"]?\)$/, '');
 
-                if (/^http/.test(str) || /^\/\//.test(str)) {
+                if ((/^http/.test(str) || /^\/\//.test(str)) && this._filteImg(str, imgFilter)) {
                     src = str;
                 }
             }
         }
 
         return src;
+    },
+
+    _filteImg: function(src, imgFilter) {
+        for (var i = 0, len = imgFilter.length; i < len; i++) {
+            if (imgFilter[i].test(src)) {
+                return true;
+            }
+        }
+
+        return false;
     },
 
     currentPos: {
@@ -124,6 +134,7 @@ module.exports = {
 
         return requests;
     },
+    
     formateUrl: function(url) {
         return url.replace(/^http(s)?\:/, '').replace(/^\/\//, '');
     },
@@ -135,6 +146,8 @@ module.exports = {
 
             // 是否抓取过请求的标志位
             isFirstRequestSent: false,
+
+            recordType: 'auto', // 记录首屏记录方式，auto / hand
 
             // 可以抓取请求的时间窗口队列
             catchRequestTimeSections: [],
@@ -158,13 +171,15 @@ module.exports = {
                 },
 
                 // 获取数据后，认为渲染 dom 的时长；同时也是串联请求的等待间隔
-                renderTimeAfterGettingData: 500,
+                renderTimeAfterGettingData: 1000,
 
                 // 找到首屏时间后，延迟上报的时间，默认为 500ms，防止页面出现需要跳转到登录导致性能数据错误的问题
                 delayReport: 500,
 
                 // onload 之后延时一段时间，如果到期后仍然没有异步请求发出，则认为是纯静态页面
-                watingTimeWhenDefineStaticPage: 1000,
+                watingTimeWhenDefineStaticPage: 2000,
+
+                img: [/(\.)(png|jpg|jpeg|gif|webp)/i] // 匹配图片的正则表达式
             }
         }
     },
@@ -413,6 +428,14 @@ module.exports = {
 
             if (userOptions.onAllXhrResolved) {
                 _global.options.onAllXhrResolved = userOptions.onAllXhrResolved;
+            }
+
+            if (userOptions.img) {
+                if (typeof userOptions.img === 'object' && typeof userOptions.img.test === 'function') {
+                    _global.options.img.push(userOptions.img);
+                } else {
+                    console.error('[auto-compute-first-screen-time] param "img" should be type RegExp');
+                }
             }
         }
     },
