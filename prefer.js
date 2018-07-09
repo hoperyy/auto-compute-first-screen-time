@@ -5,13 +5,11 @@ var win = window;
 var doc = win.document;
 var util = require('./util');
 
-function generateApi() {
+function generateApi(recordType) {
     // 所有变量和函数定义在闭包环境，为了支持同时手动上报和自动上报功能
 
     var _global = util.mergeGlobal(util.initGlobal(), {
-        options: {
-            img: [/(\.)(png|jpg|jpeg|gif|webp)/i]
-        }
+        recordType: recordType
     });
 
     function runOnPageStable() {
@@ -42,6 +40,7 @@ function generateApi() {
         // 最终呈现给用户的首屏信息对象
         var resultObj = {
             type: 'perf',
+            isStaticPage: _global.isFirstRequestSent ? false : (_global.recordType === 'auto' ? true : 'unknown'),
             firstScreenImages: [],
             firstScreenImagesLength: 0,
             requests: util.transRequestDetails2Arr(_global),
@@ -147,7 +146,7 @@ function generateApi() {
         }
 
         while (currentNode) {
-            var imgSrc = util._getImgSrcFromDom(currentNode);
+            var imgSrc = util.getImgSrcFromDom(currentNode, _global.options.img);
 
             if (!imgSrc) {
                 currentNode = nodeIterator.nextNode();
@@ -192,13 +191,6 @@ function generateApi() {
 
     function mergeUserOptions(userOptions) {
         util.mergeUserOptions(_global, userOptions);
-        if (userOptions && userOptions.img) {
-            if (typeof userOptions.img === 'object' && typeof userOptions.img.test === 'function') {
-                _global.options.img.push(userOptions.img);
-            } else {
-                console.error('[auto-compute-first-screen-time] param "img" should be type RegExp');
-            }
-        }
     }
 
     return {
@@ -211,13 +203,13 @@ function generateApi() {
 
 module.exports = {
     auto: function (userOptions) {
-        var api = generateApi();
+        var api = generateApi('auto');
         api.mergeUserOptions(userOptions);
         api.insertTestTimeScript();
         api.overrideRequest();
     },
     hand: function (userOptions) {
-        var api = generateApi();
+        var api = generateApi('hand');
         api.mergeUserOptions(userOptions);
         api.runOnPageStable();
     }
