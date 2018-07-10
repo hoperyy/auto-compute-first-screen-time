@@ -346,7 +346,7 @@ function generateApi(recordType) {
         }
 
         // 停止监听 url 变化
-        _global.stopWatchUrlChange = true;
+        // _global.stopWatchUrlChange = true;
 
         clearInterval(_global.intervalDotTimer);
 
@@ -441,9 +441,10 @@ function generateApi(recordType) {
 
     function overrideRequest() {
         util.overrideRequest(_global, function () {
-            setTimeout(function() {
-                onStopObserving('dot-request-end');
-            }, 2000);
+            onStopObserving('dot-request-end');
+            // setTimeout(function() {
+            //     onStopObserving('dot-request-end');
+            // }, 2000);
             
         });
     }

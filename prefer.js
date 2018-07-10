@@ -24,7 +24,7 @@ function generateApi(recordType) {
         _global.stopCatchingRequest = true;
 
         // 标记停止监听 url 变化
-        _global.stopWatchUrlChange = true;
+        // _global.stopWatchUrlChange = true;
 
         // 获取当前时刻获取的首屏信息，并根据该信息获取首屏时间
         _recordFirstScreenInfo(reportDesc);
