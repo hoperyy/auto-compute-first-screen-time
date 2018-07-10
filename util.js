@@ -164,7 +164,7 @@ module.exports = {
 
             delayAll: 0,
 
-            stopWatchUrlChange: false,
+            // stopWatchUrlChange: false,
 
             // 记录 url 改变的历史，用于单页应用性能监控
             urlChangeStore: [],
@@ -455,9 +455,9 @@ module.exports = {
         var preTimeStamp = 0;
 
         var handler = function() {
-            if (_global.stopWatchUrlChange) {
-                // return;
-            }
+            // if (_global.stopWatchUrlChange) {
+            //     // return;
+            // }
 
             // 记录当前 href
             var href = window.location.href;
