@@ -1,5 +1,5 @@
 module.exports = {
-    version: '4.1.14',
+    version: '4.1.15',
 
     NAV_START_TIME: window.performance.timing.navigationStart,
 
@@ -144,7 +144,7 @@ module.exports = {
     initGlobal: function() {
         return {
             // 是否已经上报的标志
-            hasReported: false,
+            stopCatchingRequest: false,
 
             // 是否抓取过请求的标志位
             isFirstRequestSent: false,
@@ -164,6 +164,14 @@ module.exports = {
 
             delayAll: 0,
 
+            // stopWatchUrlChange: false,
+
+            // 记录 url 改变的历史，用于单页应用性能监控
+            urlChangeStore: [],
+
+            // 是否退出上报
+            abortReport: false,
+
             // 一些可配置项，下面是默认值
             options: {
                 onTimeFound: function () { },
@@ -173,10 +181,7 @@ module.exports = {
                 },
 
                 // 获取数据后，认为渲染 dom 的时长；同时也是串联请求的等待间隔
-                renderTimeAfterGettingData: 1000,
-
-                // 找到首屏时间后，延迟上报的时间，默认为 500ms，防止页面出现需要跳转到登录导致性能数据错误的问题
-                delayReport: 500,
+                renderTimeAfterGettingData: 300,
 
                 // onload 之后延时一段时间，如果到期后仍然没有异步请求发出，则认为是纯静态页面
                 watingTimeWhenDefineStaticPage: 5000,
@@ -275,8 +280,7 @@ module.exports = {
             // 默认抓取该请求到队列，认为其可能影响首屏
             var shouldCatch = true;
 
-            // 如果已经上报，则不再抓取请求
-            if (_global.hasReported) {
+            if (_global.stopCatchingRequest) {
                 shouldCatch = false;
             }
 
@@ -393,25 +397,12 @@ module.exports = {
 
     mergeUserOptions: function(_global, userOptions) {
         if (userOptions) {
-            if (userOptions.delayReport) {
-                _global.options.delayReport = userOptions.delayReport;
-            }
-
             if (userOptions.watingTimeWhenDefineStaticPage) {
                 _global.options.watingTimeWhenDefineStaticPage = userOptions.watingTimeWhenDefineStaticPage;
             }
 
             if (userOptions.onTimeFound) {
-                _global.options.onTimeFound = function () {
-                    var _this = this;
-                    var args = arguments;
-
-                    // delay a piece of time for reporting
-                    var timer = setTimeout(function () {
-                        userOptions.onTimeFound.apply(_this, args);
-                        clearTimeout(timer);
-                    }, _global.options.delayReport);
-                };
+                _global.options.onTimeFound = userOptions.onTimeFound;
             }
 
             var requestConfig = userOptions.request || userOptions.xhr;
@@ -454,5 +445,45 @@ module.exports = {
                 }
             }, _global.options.watingTimeWhenDefineStaticPage);
         });
+    },
+
+    watchUrlChange: function(_global) {
+        var _this = this;
+        var urlChangeStore = _global.urlChangeStore;
+
+        var preHref = '';
+        var preTimeStamp = 0;
+
+        var handler = function() {
+            // if (_global.stopWatchUrlChange) {
+            //     // return;
+            // }
+
+            // 记录当前 href
+            var href = window.location.href;
+            if (href !== preHref) {
+                var timeStamp = _this.getTime();
+                var durationWithPreUrl = preTimeStamp ? timeStamp - preTimeStamp : 0;
+                urlChangeStore.push({
+                    timeStamp: timeStamp,
+                    href: href,
+                    durationWithPreUrl: durationWithPreUrl
+                });
+
+                preHref = href;
+                preTimeStamp = timeStamp;
+
+                // 如果在自动监控性能模式下，并且两次 url 变化的时间间隔超过 500ms，则退出上报首屏性能数据
+                if (_global.recordType === 'auto' && durationWithPreUrl >= 500) {
+                    console.log('[auto-compute-first-screen-time] url changes after 500ms, abort reporting first screen time.');
+                    _global.abortReport = true;
+                }
+            }
+        };
+
+        window.addEventListener('hashchange', handler);
+        window.addEventListener('popstate', handler);
+
+        handler();
     }
 };

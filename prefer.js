@@ -9,20 +9,33 @@ function generateApi(recordType) {
     // 所有变量和函数定义在闭包环境，为了支持同时手动上报和自动上报功能
 
     var _global = util.mergeGlobal(util.initGlobal(), {
-        recordType: recordType
+        recordType: recordType,
+        hasStableFound: false
     });
 
     function runOnPageStable(reportDesc) {
-        if (_global.hasReported) {
+        // 标记稳定时刻已经找到
+        if (_global.hasStableFound) {
             return;
         }
+        _global.hasStableFound = true;
 
-        _global.hasReported = true;
+        // 标记停止监听请求
+        _global.stopCatchingRequest = true;
 
+        // 标记停止监听 url 变化
+        // _global.stopWatchUrlChange = true;
+
+        // 获取当前时刻获取的首屏信息，并根据该信息获取首屏时间
         _recordFirstScreenInfo(reportDesc);
     }
 
-    function _runOnTimeFound(resultObj) {
+    function _report(resultObj) {
+        // 如果退出上报，则直接返回
+        if (_global.abortReport) {
+            return;
+        }
+
         // 为 resultObj 添加 _global.ignoredImages 字段
         resultObj.ignoredImages = _global.ignoredImages;
         resultObj.device = _global.device;
@@ -50,14 +63,15 @@ function generateApi(recordType) {
             firstScreenTimeStamp: -1, // 需要被覆盖的
             version: util.version,
             runtime: util.getTime() - scriptStartTime,
-            reportDesc: reportDesc
+            reportDesc: reportDesc,
+            url: window.location.href.substring(0, 200)
         };
 
         if (!firstScreenImages.length) {
             util.getDomCompleteTime(function (domCompleteStamp) {
                 resultObj.firstScreenTimeStamp = domCompleteStamp;
                 resultObj.firstScreenTime = domCompleteStamp - util.NAV_START_TIME;
-                _runOnTimeFound(resultObj);
+                _report(resultObj);
             });
         } else {
             var maxFetchTimes = 10;
@@ -91,6 +105,7 @@ function generateApi(recordType) {
                         imgLoadTimeArr.push({
                             src: imgUrl,
                             responeEnd: sourceItem.responseEnd,
+                            fetchStart: sourceItem.fetchStart,
                             details: sourceItem
                         });
                     }
@@ -107,10 +122,11 @@ function generateApi(recordType) {
 
                     resultObj.firstScreenImages = firstScreenImages;
                     resultObj.firstScreenImagesLength = firstScreenImages.length;
+
                     resultObj.firstScreenTime = parseInt(imgLoadTimeArr[0].responeEnd);
                     resultObj.firstScreenTimeStamp = parseInt(imgLoadTimeArr[0].responeEnd) + util.NAV_START_TIME;
 
-                    _runOnTimeFound(resultObj);
+                    _report(resultObj);
                 }
 
                 fetchCount++;
@@ -200,11 +216,16 @@ function generateApi(recordType) {
         util.mergeUserOptions(_global, userOptions);
     }
 
+    function watchUrlChange() {
+        util.watchUrlChange(_global);
+    }
+
     return {
         mergeUserOptions: mergeUserOptions,
         insertTestTimeScript: insertTestTimeScript,
         overrideRequest: overrideRequest,
-        runOnPageStable: runOnPageStable
+        runOnPageStable: runOnPageStable,
+        watchUrlChange: watchUrlChange
     };
 }
 
@@ -214,6 +235,7 @@ module.exports = {
         api.mergeUserOptions(userOptions);
         api.insertTestTimeScript();
         api.overrideRequest();
+        api.watchUrlChange();
     },
     hand: function (userOptions) {
         var api = generateApi('hand');
