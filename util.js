@@ -1,5 +1,5 @@
 module.exports = {
-    version: '4.1.15',
+    version: '4.1.17',
 
     NAV_START_TIME: window.performance.timing.navigationStart,
 
@@ -184,7 +184,7 @@ module.exports = {
                 renderTimeAfterGettingData: 300,
 
                 // onload 之后延时一段时间，如果到期后仍然没有异步请求发出，则认为是纯静态页面
-                watingTimeWhenDefineStaticPage: 5000,
+                watingTimeWhenDefineStaticPage: 3000,
 
                 img: [/(\.)(png|jpg|jpeg|gif|webp)/i] // 匹配图片的正则表达式
             }
