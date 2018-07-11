@@ -1,5 +1,5 @@
 module.exports = {
-    version: '4.1.17',
+    version: '4.1.18',
 
     NAV_START_TIME: window.performance.timing.navigationStart,
 
@@ -473,8 +473,8 @@ module.exports = {
                 preHref = href;
                 preTimeStamp = timeStamp;
 
-                // 如果在自动监控性能模式下，并且两次 url 变化的时间间隔超过 500ms，则退出上报首屏性能数据
-                if (_global.recordType === 'auto' && durationWithPreUrl >= 500) {
+                // 如果在自动监控性能模式下，并且两次 url 变化的时间间隔超过 300ms，则退出上报首屏性能数据
+                if (_global.recordType === 'auto' && durationWithPreUrl >= 300) {
                     console.log('[auto-compute-first-screen-time] url changes after 500ms, abort reporting first screen time.');
                     _global.abortReport = true;
                 }

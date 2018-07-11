@@ -48,6 +48,7 @@ function generateApi(recordType) {
         var startTime =  util.getTime();
         var firstScreenImages = _getImagesInFirstScreen().map(util.formateUrl);
         var endTime = util.getTime();
+        var firstScreenImagesDetail = [];
 
         // 找到最后一个图片加载完成的时刻，作为首屏时刻
         // 最终呈现给用户的首屏信息对象
@@ -56,6 +57,7 @@ function generateApi(recordType) {
             isStaticPage: _global.isFirstRequestSent ? false : (_global.recordType === 'auto' ? true : 'unknown'),
             firstScreenImages: [],
             firstScreenImagesLength: 0,
+            firstScreenImagesDetail: firstScreenImagesDetail,
             requests: util.transRequestDetails2Arr(_global),
             delayAll: endTime - startTime,
             delayFirstScreen: endTime - startTime,
@@ -96,23 +98,22 @@ function generateApi(recordType) {
                 }
 
                 // 从 source 中找到图片加载信息
-                var imgLoadTimeArr = [];
                 for (i = 0, len = filteredSource.length; i < len; i++) {
                     var sourceItem = filteredSource[i];
                     var imgUrl = sourceItem.name;
                     if (firstScreenImages.indexOf(util.formateUrl(imgUrl)) !== -1) {
                         matchedLength++;
-                        imgLoadTimeArr.push({
+                        firstScreenImagesDetail.push({
                             src: imgUrl,
                             responeEnd: sourceItem.responseEnd,
                             fetchStart: sourceItem.fetchStart,
-                            details: sourceItem
+                            // details: sourceItem
                         });
                     }
                 }
 
                 // 倒序
-                imgLoadTimeArr.sort(function (a, b) {
+                firstScreenImagesDetail.sort(function (a, b) {
                     return b.responeEnd - a.responeEnd;
                 });
 
@@ -123,8 +124,8 @@ function generateApi(recordType) {
                     resultObj.firstScreenImages = firstScreenImages;
                     resultObj.firstScreenImagesLength = firstScreenImages.length;
 
-                    resultObj.firstScreenTime = parseInt(imgLoadTimeArr[0].responeEnd);
-                    resultObj.firstScreenTimeStamp = parseInt(imgLoadTimeArr[0].responeEnd) + util.NAV_START_TIME;
+                    resultObj.firstScreenTime = parseInt(firstScreenImagesDetail[0].responeEnd);
+                    resultObj.firstScreenTimeStamp = parseInt(firstScreenImagesDetail[0].responeEnd) + util.NAV_START_TIME;
 
                     _report(resultObj);
                 }

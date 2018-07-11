@@ -143,6 +143,8 @@ function generateApi(recordType) {
             requests.push(parsedRequestKey);
         }
 
+        
+
         // 最终呈现给用户的首屏信息对象
         var resultObj = {
             maxErrorTime: targetObj.blankTime, // 最大误差值
@@ -155,6 +157,7 @@ function generateApi(recordType) {
             firstScreenTimeStamp: targetObj.firstScreenTimeStamp,
             firstScreenImages: targetObj.firstScreenImages,
             firstScreenImagesLength: targetObj.firstScreenImages.length,
+            firstScreenImagesDetail: _getFirstScreenImagesDetail(),
             delayFirstScreen: delayFirstScreen,
             type: 'dot',
             version: util.version,
@@ -163,6 +166,24 @@ function generateApi(recordType) {
             url: window.location.href.substring(0, 200)
         };
         _report(resultObj);
+    }
+
+    function _getFirstScreenImagesDetail() {
+        var firstScreenImagesDetail = [];
+
+        for (var imgMapKey in _global.imgMap) {
+            firstScreenImagesDetail.push({
+                src: imgMapKey,
+                responseTimeStamp: _global.imgMap[imgMapKey]['onloadTimeStamp'],
+                responseEnd: _global.imgMap[imgMapKey]['onloadTime']
+            });
+        }
+
+        firstScreenImagesDetail.sort(function (a, b) {
+            return b.responseEnd - a.responseEnd;
+        });
+
+        return firstScreenImagesDetail;
     }
 
     // 记录运行该方法时刻的 dom 信息，主要是 images；运行时机为每次 _global.mutationObserver 回调触发或定时器触发
@@ -365,6 +386,7 @@ function generateApi(recordType) {
                 requests: util.transRequestDetails2Arr(_global),
                 dotList: _global.dotList,
                 firstScreenImages: _getImages({ searchInFirstScreen: true }),
+                firstScreenImagesDetail: _getFirstScreenImagesDetail(),
                 delayAll: _global.delayAll,
                 delayFirstScreen: -1,
                 type: 'none',
