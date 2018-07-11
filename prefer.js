@@ -105,8 +105,8 @@ function generateApi(recordType) {
                         matchedLength++;
                         firstScreenImagesDetail.push({
                             src: imgUrl,
-                            responeEnd: sourceItem.responseEnd,
-                            fetchStart: sourceItem.fetchStart,
+                            responeEnd: parseInt(sourceItem.responseEnd),
+                            fetchStart: parseInt(sourceItem.fetchStart),
                             // details: sourceItem
                         });
                     }
@@ -201,8 +201,8 @@ function generateApi(recordType) {
     }
 
     // 插入脚本，用于获取脚本运行完成时间，这个时间用于获取当前页面是否有异步请求发出
-    function insertTestTimeScript() {
-        util.insertTestTimeScript(function() {
+    function testStaticPage() {
+        util.testStaticPage(function() {
             runOnPageStable('perf-auto-timeout');   
         }, _global);
     }
@@ -223,7 +223,7 @@ function generateApi(recordType) {
 
     return {
         mergeUserOptions: mergeUserOptions,
-        insertTestTimeScript: insertTestTimeScript,
+        testStaticPage: testStaticPage,
         overrideRequest: overrideRequest,
         runOnPageStable: runOnPageStable,
         watchUrlChange: watchUrlChange
@@ -234,7 +234,7 @@ module.exports = {
     auto: function (userOptions) {
         var api = generateApi('auto');
         api.mergeUserOptions(userOptions);
-        api.insertTestTimeScript();
+        api.testStaticPage();
         api.overrideRequest();
         api.watchUrlChange();
     },

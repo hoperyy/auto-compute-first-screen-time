@@ -1,5 +1,5 @@
 module.exports = {
-    version: '4.1.18',
+    version: '4.1.19',
 
     NAV_START_TIME: window.performance.timing.navigationStart,
 
@@ -433,7 +433,36 @@ module.exports = {
         }
     },
 
-    insertTestTimeScript: function(onStable, _global) {
+    _appendScript: function(callback) {
+        var insertedScript = null;
+        var functionName = 'AUTO_COMPUTE_FIRST_SCREEN_TIME_' + this.getTime() + '_' + parseInt(Math.random() * 100);
+
+        var insert = function () {
+            insertedScript = document.createElement('script');
+            insertedScript.innerHTML = 'window.' + functionName + ' && window.' + functionName + '()';
+            insertedScript.async = false;
+            document.body.appendChild(insertedScript);
+        };
+
+        window[functionName] = function () {
+            callback();
+
+            // 清理
+            document.body.removeChild(insertedScript);
+            insertedScript = null;
+            window[functionName] = null;
+        };
+
+        if (window.document && window.document.createElement) {
+            insert();
+        } else {
+            document.addEventListener('DOMContentLoaded', function () {
+                insert();
+            });
+        }
+    },
+
+    testStaticPage: function(onStable, _global) {
         window.addEventListener('load', function () {
             // 如果脚本运行完毕，延时一段时间后，再判断页面是否发出异步请求，如果页面还没有发出异步请求，则认为该时刻为稳定时刻，尝试上报
             var timer = setTimeout(function () {
@@ -449,41 +478,42 @@ module.exports = {
 
     watchUrlChange: function(_global) {
         var _this = this;
-        var urlChangeStore = _global.urlChangeStore;
 
-        var preHref = '';
-        var preTimeStamp = 0;
+        if (_global.recordType === 'auto') {
+            this._appendScript(function () {
+                var urlChangeStore = _global.urlChangeStore;
 
-        var handler = function() {
-            // if (_global.stopWatchUrlChange) {
-            //     // return;
-            // }
+                var preHref = '';
+                var preTimeStamp = 0;
 
-            // 记录当前 href
-            var href = window.location.href;
-            if (href !== preHref) {
-                var timeStamp = _this.getTime();
-                var durationWithPreUrl = preTimeStamp ? timeStamp - preTimeStamp : 0;
-                urlChangeStore.push({
-                    timeStamp: timeStamp,
-                    href: href,
-                    durationWithPreUrl: durationWithPreUrl
-                });
+                var handler = function () {
+                    // 记录当前 href
+                    var href = window.location.href;
+                    if (href !== preHref) {
+                        var timeStamp = _this.getTime();
+                        var durationWithPreUrl = preTimeStamp ? timeStamp - preTimeStamp : 0;
+                        urlChangeStore.push({
+                            timeStamp: timeStamp,
+                            href: href,
+                            durationWithPreUrl: durationWithPreUrl
+                        });
 
-                preHref = href;
-                preTimeStamp = timeStamp;
+                        preHref = href;
+                        preTimeStamp = timeStamp;
 
-                // 如果在自动监控性能模式下，并且两次 url 变化的时间间隔超过 300ms，则退出上报首屏性能数据
-                if (_global.recordType === 'auto' && durationWithPreUrl >= 300) {
-                    console.log('[auto-compute-first-screen-time] url changes after 500ms, abort reporting first screen time.');
-                    _global.abortReport = true;
-                }
-            }
-        };
+                        // 如果在自动监控性能模式下，并且两次 url 变化的时间间隔超过 300ms，则退出上报首屏性能数据
+                        if (durationWithPreUrl >= 300) {
+                            console.log('[auto-compute-first-screen-time] url changes after 300ms, abort reporting first screen time.');
+                            _global.abortReport = true;
+                        }
+                    }
+                };
 
-        window.addEventListener('hashchange', handler);
-        window.addEventListener('popstate', handler);
+                window.addEventListener('hashchange', handler);
+                window.addEventListener('popstate', handler);
 
-        handler();
+                handler();
+            });
+        }
     }
 };

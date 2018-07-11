@@ -421,8 +421,8 @@ function generateApi(recordType) {
     }
 
     // 插入脚本，用于获取脚本运行完成时间，这个时间用于获取当前页面是否有异步请求发出
-    function insertTestTimeScript() {
-        util.insertTestTimeScript(function() {
+    function testStaticPage() {
+        util.testStaticPage(function() {
             onStopObserving('dot-timeout');
         }, _global);
     }
@@ -464,10 +464,6 @@ function generateApi(recordType) {
     function overrideRequest() {
         util.overrideRequest(_global, function () {
             onStopObserving('dot-request-end');
-            // setTimeout(function() {
-            //     onStopObserving('dot-request-end');
-            // }, 2000);
-            
         });
     }
 
@@ -481,7 +477,7 @@ function generateApi(recordType) {
 
     return {
         mergeUserOptions: mergeUserOptions,
-        insertTestTimeScript: insertTestTimeScript,
+        testStaticPage: testStaticPage,
         observeDomChange: observeDomChange,
         overrideRequest: overrideRequest,
         recordDomInfo: recordDomInfo,
@@ -494,7 +490,7 @@ module.exports = {
         var api = generateApi('auto');
 
         api.mergeUserOptions(userOptions);
-        api.insertTestTimeScript();
+        api.testStaticPage();
         api.observeDomChange();
         api.overrideRequest();
         api.watchUrlChange();
