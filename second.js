@@ -70,6 +70,11 @@ function generateApi(recordType) {
                     targetInfo = dotList[i];
                 }
             }
+
+            // 如果仍然没有找到 targetInfo，则取稳定状态的值
+            if (!targetInfo) {
+                targetInfo = _global.dotList[0];
+            }
         } else {
             // 如果最终状态没有图片，则取出当前打点的对象，首屏时间设置为 performance 值
             targetInfo = _global.dotList[0];
@@ -77,9 +82,7 @@ function generateApi(recordType) {
             targetInfo.firstScreenTime = performance.timing.domComplete - util.NAV_START_TIME;
         }
 
-        if (targetInfo) {
-            targetInfo.isTargetDot = true;
-        }
+        targetInfo.isTargetDot = true;
 
         return targetInfo;
     }
@@ -377,33 +380,11 @@ function generateApi(recordType) {
         // 向前递推，找到离稳定状态最近的渲染变动时刻
         var targetDotObj = _getTargetDotObj(_global.dotList);
 
-        if (!targetDotObj) {
-            console.log('[auto-compute-first-screen-time] no suitable time found.');
-            _report({
-                firstScreenTime: -1,
-                firstScreenTimeStamp: -1,
-                maxErrorTime: -1,
-                requests: util.transRequestDetails2Arr(_global),
-                dotList: _global.dotList,
-                firstScreenImages: _getImages({ searchInFirstScreen: true }),
-                firstScreenImagesDetail: _getFirstScreenImagesDetail(),
-                delayAll: _global.delayAll,
-                delayFirstScreen: -1,
-                type: 'none',
-                isStaticPage: _global.isFirstRequestSent ? false : (_global.recordType === 'auto' ? true : 'unknown'),
-                version: util.version,
-                runtime: util.getTime() - scriptStartTime,
-                // 添加额外字段用于调试
-                reportDesc: 'dot-no-target',
-                url: window.location.href.substring(0, 200)
-            });
-        } else {
-            // 触发事件：所有异步请求已经发布完毕
-            _global.options.onAllXhrResolved && _global.options.onAllXhrResolved(targetDotObj.timeStamp);
+        // 触发事件：所有异步请求已经发布完毕
+        _global.options.onAllXhrResolved && _global.options.onAllXhrResolved(targetDotObj.timeStamp);
 
-            // 如果 target 时刻的图片已经加载完毕，则上报该信息中记录的完成时刻
-            _checkTargetDot(targetDotObj, reportDesc);
-        }
+        // 如果 target 时刻的图片已经加载完毕，则上报该信息中记录的完成时刻
+        _checkTargetDot(targetDotObj, reportDesc);
     }
 
     function _checkTargetDot(dotObj, reportDesc) {
