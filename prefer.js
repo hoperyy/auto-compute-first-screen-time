@@ -151,7 +151,7 @@ function generateApi(recordType) {
         _global.device.screenHeight = screenHeight;
         _global.device.screenWidth = screenWidth;
 
-        var nodeIterator = util.queryAllNode();
+        var nodeIterator = util.queryAllNode(_global.ignoreTag);
         var currentNode = nodeIterator.nextNode();
         var imgList = [];
 

@@ -1,5 +1,5 @@
 module.exports = {
-    version: '4.1.20',
+    version: '4.1.21',
 
     NAV_START_TIME: window.performance.timing.navigationStart,
 
@@ -98,14 +98,47 @@ module.exports = {
 
         return false;
     },
-    queryAllNode: function() {
-        return document.createNodeIterator(
+    queryAllNode: function(ignoreTag) {
+        var _this = this;
+
+        var result = document.createNodeIterator(
             document.body,
             NodeFilter.SHOW_ELEMENT,
             function (node) {
-                return NodeFilter.FILTER_ACCEPT;
+                // 判断该元素及其父元素是否是需要忽略的元素
+                if (!_this._shouldIgnoreNode(node, ignoreTag)) {
+                    return NodeFilter.FILTER_ACCEPT;
+                }
             }
-        ); 
+        );
+
+        return result;
+    },
+    _shouldIgnoreNode: function(child, ignoreTag) {
+        var ignoredNodes = document.querySelectorAll(ignoreTag);
+        
+        for (var i = 0, len = ignoredNodes.length; i < len; i++) {
+            if (this._isChild(child, ignoredNodes[i])) {
+                return true;
+            }
+        }
+
+        return false;
+    },
+
+    _isChild: function(child, parent) {
+        var isChild = false;
+
+        while(child) {
+            if (child === parent) {
+                isChild = true;
+                break;
+            }
+
+            child = child.parentNode;
+        }
+
+        return isChild;
     },
     parseUrl: function (url) {
         var anchor = document.createElement('a');
@@ -164,7 +197,7 @@ module.exports = {
 
             delayAll: 0,
 
-            // stopWatchUrlChange: false,
+            ignoreTag: '[perf-ignore]',
 
             // 记录 url 改变的历史，用于单页应用性能监控
             urlChangeStore: [],

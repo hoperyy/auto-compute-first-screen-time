@@ -293,7 +293,7 @@ function generateApi(recordType) {
 
         var searchInFirstScreen = param && param.searchInFirstScreen;
 
-        var nodeIterator = util.queryAllNode();
+        var nodeIterator = util.queryAllNode(_global.ignoreTag);
         var currentNode = nodeIterator.nextNode();
         var imgList = [];
 
