@@ -158,8 +158,8 @@ function generateApi(recordType) {
             requests: util.transRequestDetails2Arr(_global),
             firstScreenTime: targetObj.firstScreenTimeStamp - util.NAV_START_TIME,
             firstScreenTimeStamp: targetObj.firstScreenTimeStamp,
-            firstScreenImages: targetObj.firstScreenImages,
-            firstScreenImagesLength: targetObj.firstScreenImages.length,
+            firstScreenImages: _global.dotList[0].firstScreenImages,
+            firstScreenImagesLength: _global.dotList[0].firstScreenImages.length,
             firstScreenImagesDetail: _getFirstScreenImagesDetail(),
             delayFirstScreen: delayFirstScreen,
             type: 'dot',
@@ -173,13 +173,17 @@ function generateApi(recordType) {
 
     function _getFirstScreenImagesDetail() {
         var firstScreenImagesDetail = [];
+        var firstScreenImages = _global.dotList[0].firstScreenImages;
 
-        for (var imgMapKey in _global.imgMap) {
-            firstScreenImagesDetail.push({
-                src: imgMapKey,
-                responseTimeStamp: _global.imgMap[imgMapKey]['onloadTimeStamp'],
-                responseEnd: _global.imgMap[imgMapKey]['onloadTime']
-            });
+        for (var i = 0, len = firstScreenImages.length; i < len; i++) {
+            var imgMapKey = firstScreenImages[i];
+            if (_global.imgMap[imgMapKey]) {
+                firstScreenImagesDetail.push({
+                    src: imgMapKey,
+                    responseTimeStamp: _global.imgMap[imgMapKey]['onloadTimeStamp'],
+                    responseEnd: _global.imgMap[imgMapKey]['onloadTime']
+                });
+            }
         }
 
         firstScreenImagesDetail.sort(function (a, b) {
@@ -207,7 +211,7 @@ function generateApi(recordType) {
         _global.delayAll += recordEndTime - recordStartTime;
 
         var dotObj = {
-            isImgInFirstScreen: recordFirstScreen,
+            isImgInFirstScreen: recordFirstScreen || false,
             isFromInternal: (param && param.isFromInternal) ? true : false,
             isTargetDot: (param && param.isTargetDot) || false, // 默认是 false, 除非手动设置是目标打点（用于手动埋点）
 
