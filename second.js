@@ -317,9 +317,9 @@ function generateApi(recordType) {
                 continue;
             }
 
-            util.recordCurrentPos(currentNode);
-
             if (searchInFirstScreen) {
+                util.recordCurrentPos(currentNode, _global);
+
                 if (util.isInFirstScreen(currentNode)) {
                     onImgSrcFound(imgSrc);
                 } else {

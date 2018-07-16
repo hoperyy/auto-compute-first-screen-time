@@ -1,5 +1,5 @@
 module.exports = {
-    version: '4.1.21',
+    version: '4.1.22',
 
     NAV_START_TIME: window.performance.timing.navigationStart,
 
@@ -61,9 +61,24 @@ module.exports = {
         right: 0
     },
 
-    recordCurrentPos: function(currentNode) {
+    recordCurrentPos: function(currentNode, _global) {
         var boundingClientRect = currentNode.getBoundingClientRect();
-        var scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+
+        var scrollWrapper = document.querySelector(_global.scrollWrapper);
+        var scrollTop;
+
+        // 优先使用加了 perf-scroll 标志的 dom 节点作为滚动容器
+        if (scrollWrapper) {
+            var scrollWrapperClientRect = scrollWrapper.getBoundingClientRect();
+
+            if (scrollWrapperClientRect.top < 0) {
+                scrollTop = -scrollWrapperClientRect.top;
+            } else {
+                scrollTop = 0;
+            }
+        } else {
+            scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+        }
 
         var top = boundingClientRect.top; // getBoundingClientRect 会引起重绘
         var bottom = boundingClientRect.bottom;
@@ -198,6 +213,8 @@ module.exports = {
             delayAll: 0,
 
             ignoreTag: '[perf-ignore]',
+
+            scrollWrapper: '[perf-scroll]',
 
             // 记录 url 改变的历史，用于单页应用性能监控
             urlChangeStore: [],
