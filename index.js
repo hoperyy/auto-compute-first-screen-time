@@ -6,14 +6,16 @@
 
 var supportPerformance = ('performance' in window) && ('getEntriesByType' in window.performance) && (window.performance.getEntriesByType('resource') instanceof Array);
 
+var supportQuerySelector = !!document.querySelector;
+
 // 用于测试
 // supportPerformance = false;
 
 // 轻量算法
-if (supportPerformance) {
+if (supportQuerySelector && supportPerformance) {
     module.exports = require('./prefer').auto;
     module.exports.report = require('./prefer').hand;
-} else if (window.performance && window.performance.timing) {
+} else if (supportQuerySelector && window.performance && window.performance.timing) {
     // 较重的算法，通过不断的打点获取首屏
     module.exports = require('./second').auto;
     module.exports.report = require('./second').hand;

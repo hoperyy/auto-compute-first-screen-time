@@ -1,5 +1,5 @@
 module.exports = {
-    version: '4.1.22',
+    version: '4.1.23',
 
     NAV_START_TIME: window.performance.timing.navigationStart,
 
@@ -102,12 +102,12 @@ module.exports = {
         var screenWidth = window.innerWidth;
 
         var scrollTop = this.currentPos.scrollTop;
-        var top = this.currentPos.top; // getBoundingClientRect 会引起重绘
+        var top = this.currentPos.top;
         var left = this.currentPos.left;
         var right = this.currentPos.right;
 
         // 如果在结构上的首屏内（上下、左右）
-        if ((scrollTop + top) <= screenHeight && right >= 0 && left <= screenWidth) {
+        if ((scrollTop + top) < screenHeight && right > 0 && left < screenWidth) {
             return true;
         }
 
