@@ -8,7 +8,7 @@ var supportPerformance = ('performance' in window) && ('getEntriesByType' in win
 
 var supportQuerySelector = !!document.querySelector;
 
-// 用于测试
+// 强制使用第二种方式获取首屏时间
 // supportPerformance = false;
 
 // 轻量算法
