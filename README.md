@@ -87,7 +87,7 @@ Yes!
 
 ## Details
 
-https://github.com/hoperyy/blog/issues/102
+![details](imgs/2018-07-19-16-30-13.png)
 
 ## LICENSE
 
