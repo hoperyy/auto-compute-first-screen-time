@@ -32,7 +32,7 @@ function generateApi(recordType) {
             // 打点间隔
             dotDelay: 250,
 
-            abortTimeWhenDelay: 2000 // 监控打点会引起页面重绘，如果引发页面重绘的时间超过了该值，则不再做性能统计
+            abortTimeWhenDelay: 1000 // 监控打点会引起页面重绘，如果引发页面重绘的时间超过了该值，则不再做性能统计
         }
     });
 
