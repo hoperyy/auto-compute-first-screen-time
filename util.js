@@ -1,5 +1,5 @@
 module.exports = {
-    version: '4.1.25',
+    version: '4.1.26',
 
     NAV_START_TIME: window.performance.timing.navigationStart,
 

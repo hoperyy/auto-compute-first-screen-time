@@ -39,6 +39,7 @@ function generateApi(recordType) {
         // 为 resultObj 添加 _global.ignoredImages 字段
         resultObj.ignoredImages = _global.ignoredImages;
         resultObj.device = _global.device;
+        resultObj.success = true;
 
         _global.options.onTimeFound(resultObj);
     }

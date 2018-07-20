@@ -17,7 +17,7 @@ function generateApi(recordType) {
         // 是否已经停止监听的标志
         hasStoppedObserve: false,
 
-        // 记录 Mutation 回调时的 dom 信息
+        // 打点数组
         dotList: [],
 
         recordType: recordType,
@@ -32,7 +32,7 @@ function generateApi(recordType) {
             // 打点间隔
             dotDelay: 250,
 
-            abortTimeWhenDelay: 1000 // 监控打点会引起页面重绘，如果引发页面重绘的时间超过了该值，则不再做性能统计
+            abortTimeWhenDelay: 500 // 监控打点会引起页面重绘，如果引发页面重绘的时间超过了该值，则不再做性能统计
         }
     });
 
@@ -106,7 +106,28 @@ function generateApi(recordType) {
         return timeArr[0];
     }
 
-    function _runOnTargetDotFound(targetObj, reportDesc) {
+    // 只会执行一次
+    function _report(targetObj, reportDesc) {
+        // 检查是否取消上报
+        if (_global.abortReport) {
+            return;
+        }
+
+        if (_global.abortByDelayTimeout) {
+            // 上报
+            _global.options.onTimeFound({
+                success: false,
+                delayFirstScreen: _global.delayAll,
+                abortTimeSetting: _global.options.abortTimeWhenDelay,
+                url: window.location.href.substring(0, 200),
+                dotList: _global.dotList,
+                type: 'dot'
+            });
+
+            _global.abortReport = true;
+            return;
+        }
+
         // 为 _global.imgMap 添加是否是首屏标志
         var targetFirstScreenImages = null;
         var firstScreenImages = [];
@@ -146,8 +167,6 @@ function generateApi(recordType) {
             requests.push(parsedRequestKey);
         }
 
-        
-
         // 最终呈现给用户的首屏信息对象
         var resultObj = {
             maxErrorTime: targetObj.blankTime, // 最大误差值
@@ -168,7 +187,15 @@ function generateApi(recordType) {
             reportDesc: reportDesc,
             url: window.location.href.substring(0, 200)
         };
-        _report(resultObj);
+
+        resultObj.ignoredImages = _global.ignoredImages;
+        resultObj.device = _global.device;
+        resultObj.success = true;
+
+        // 输出结果
+        _global.options.onTimeFound(resultObj);
+
+        _global.abortReport = true;
     }
 
     function _getFirstScreenImagesDetail() {
@@ -198,7 +225,8 @@ function generateApi(recordType) {
         var recordFirstScreen = param && param.recordFirstScreen;
 
         // 如果在打点过程中，并且性能监控打点引发的渲染 delay 超过了设置的阈值，则停止性能监控打点
-        if (!recordFirstScreen && _global.delayAll >= _global.options.abortTimeWhenDelay) {
+        if (_global.delayAll >= _global.options.abortTimeWhenDelay) {
+            _global.abortByDelayTimeout = true;
             return;
         }
 
@@ -348,17 +376,6 @@ function generateApi(recordType) {
         return imgList;
     }
 
-    function _report(reportObj) {
-        if (_global.abortReport) {
-            return;
-        }
-
-        reportObj.ignoredImages = _global.ignoredImages;
-        reportObj.device = _global.device;
-
-        _global.options.onTimeFound(reportObj);
-    }
-
     function onStopObserving(reportDesc) {
         if (_global.hasStoppedObserve) {
             return;
@@ -397,10 +414,10 @@ function generateApi(recordType) {
             if (dotObj.firstScreenTimeStamp === 0) {
                 util.getDomCompleteTime(function (domCompleteStamp) {
                     dotObj.firstScreenTimeStamp = domCompleteStamp;
-                    _runOnTargetDotFound(dotObj, reportDesc);
+                    _report(dotObj, reportDesc);
                 });
             } else {
-                _runOnTargetDotFound(dotObj, reportDesc);
+                _report(dotObj, reportDesc);
             }
         }
     }
