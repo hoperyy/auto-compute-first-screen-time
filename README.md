@@ -92,6 +92,8 @@ Yes!
 
 ![details](imgs/2018-07-19-16-30-13.png)
 
+![details](imgs/2018-07-24-22-04-03.png)
+
 ## LICENSE
 
 BSD
