@@ -1,5 +1,3 @@
-*[中文文档](./README_zh.md)*
-
 **Status: beta**
 
 ## What is this ?
@@ -51,8 +49,11 @@ the distance between average tested time and real first screen time is less than
 
         // callback after first screen was got
         onTimeFound: function (result) {
-            // report(result.firstScreenTime)
-            // result.firstScreenTime will be -1 if failed
+            if (result.success) {
+                console.log(result.firstScreenTime)
+            } else {
+                console.log(result);
+            }
         }
     });
 
@@ -66,10 +67,12 @@ the distance between average tested time and real first screen time is less than
     var autoComputeFirstScreenTime = require('auto-compute-first-screen-time');
 
     autoComputeFirstScreenTime.report({
-        // callback after first screen was got
         onTimeFound: function (result) {
-            // report(result.firstScreenTime)
-            // result.firstScreenTime will be -1 if failed
+            if (result.success) {
+                console.log(result.firstScreenTime)
+            } else {
+                console.log(result);
+            }
         }
     });
 
