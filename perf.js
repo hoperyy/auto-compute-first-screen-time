@@ -106,7 +106,7 @@ function generateApi(recordType) {
                         matchedLength++;
                         firstScreenImagesDetail.push({
                             src: imgUrl,
-                            responeEnd: parseInt(sourceItem.responseEnd),
+                            responseEnd: parseInt(sourceItem.responseEnd),
                             fetchStart: parseInt(sourceItem.fetchStart),
                             // details: sourceItem
                         });
@@ -115,7 +115,7 @@ function generateApi(recordType) {
 
                 // 倒序
                 firstScreenImagesDetail.sort(function (a, b) {
-                    return b.responeEnd - a.responeEnd;
+                    return b.responseEnd - a.responseEnd;
                 });
 
                 // 如果 source 中有全部的首屏图片信息，则停止定时器并执行性能上报
@@ -125,8 +125,8 @@ function generateApi(recordType) {
                     resultObj.firstScreenImages = firstScreenImages;
                     resultObj.firstScreenImagesLength = firstScreenImages.length;
 
-                    resultObj.firstScreenTime = parseInt(firstScreenImagesDetail[0].responeEnd);
-                    resultObj.firstScreenTimeStamp = parseInt(firstScreenImagesDetail[0].responeEnd) + util.NAV_START_TIME;
+                    resultObj.firstScreenTime = parseInt(firstScreenImagesDetail[0].responseEnd);
+                    resultObj.firstScreenTimeStamp = parseInt(firstScreenImagesDetail[0].responseEnd) + util.NAV_START_TIME;
 
                     _report(resultObj);
                 }
