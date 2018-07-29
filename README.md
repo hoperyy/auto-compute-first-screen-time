@@ -9,13 +9,13 @@ A tool for auto computing first screen time of one page with inaccuracy less tha
 +   If there are images existing in first screen, the defination is: 
 
     ```
-    the-time-at-which-all-images-in-first-screen-are-downloaded  -  window.performance.timing.navigationStart
+    the time when all images in first screen loaded.
     ```
 
 +   If there is no image existing in first screen, the defination is:
 
     ```
-    the-time-at-which-dom-changes-no-more  -  window.performance.timing.navigationStart
+    window.performance.timing.domComplete
     ```
 
 ## Precision
