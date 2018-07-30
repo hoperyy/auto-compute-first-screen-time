@@ -84,7 +84,7 @@ the distance between average tested time and real first screen time is less than
 
     +   `perf-ignore`
 
-        ignore images inside the tagged dom (tagged dom include)
+        ignore images inside the tagged dom (tagged dom included)
 
         ```html
         <div>
@@ -106,7 +106,7 @@ the distance between average tested time and real first screen time is less than
 
         the chance of current page will compute first screen time. `1` by default.
 
-        as title, the chance with 20% of current page will compute first screen time;
+        as this example, the chance with 20% of current page will compute first screen time;
 
     +   `<body perf-dot></body>`
 
