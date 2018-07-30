@@ -26,28 +26,32 @@ the distance between average tested time and real first screen time is less than
 
 +   auto compute first screen time
 
-    run this code before the scripts of page run.
+    ** Run this code before the scripts of page run. **
 
     ```
     var autoComputeFirstScreenTime = require('auto-compute-first-screen-time');
     
     autoComputeFirstScreenTime({
+
+        // required: false
         request: {
             /*
-             * the async request that will be caught for computing first screen time;
-             * RegExp Required;
+             * the request that will be caught for computing first screen time;
+             * RegExp in Array Required;
              * example: [/mtop\.alibaba\.com/i]
              */
             limitedIn: [],
 
-            /* the async request that won't be caught for computing first screen time;
-             * RegExp Required;
+            /* 
+             * the request that won't be caught for computing first screen time;
+             * RegExp in Array Required;
              * example: [/list\.alibaba\.com/i]
              */
             exclude: []
         },
 
         // callback after first screen was got
+        // required: false
         onTimeFound: function (result) {
             if (result.success) {
                 console.log(result.firstScreenTime)
@@ -67,6 +71,7 @@ the distance between average tested time and real first screen time is less than
     var autoComputeFirstScreenTime = require('auto-compute-first-screen-time');
 
     autoComputeFirstScreenTime.report({
+        // required: false
         onTimeFound: function (result) {
             if (result.success) {
                 console.log(result.firstScreenTime)
@@ -90,7 +95,7 @@ Yes!
 
 ## Details
 
-![details](imgs/2018-07-24-22-04-03.png)
+![details](imgs/2018-07-30-11-35-25.png)
 
 ## TODO
 
