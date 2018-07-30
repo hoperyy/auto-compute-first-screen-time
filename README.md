@@ -1,5 +1,3 @@
-**Status: beta**
-
 ## What is this ?
 
 A tool for auto computing first screen time of one page with inaccuracy less than 200ms.
@@ -110,7 +108,7 @@ the distance between average tested time and real first screen time is less than
 
     +   `<body perf-dot></body>`
 
-        force compute first screen by dotting. (details as **Details** below)
+        force computing first screen time by dotting. (as [Details](https://github.com/hoperyy/auto-compute-first-screen-time#details) below)
 
 ## Support xhr ?
 
