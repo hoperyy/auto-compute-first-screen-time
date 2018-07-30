@@ -84,7 +84,7 @@ the distance between average tested time and real first screen time is less than
 
     +   `perf-ignore`
 
-        ignore images inside the tagged dom
+        ignore images inside the tagged dom (tagged dom include)
 
         ```html
         <div>
