@@ -90,16 +90,11 @@ the distance between average tested time and real first screen time is less than
         <div>
             <img src="xxx" />
         </div>
-        <div perf-ignore>
-            <img src="xxx" />
+        <div perf-ignore> <!-- ignored -->
+            <img src="xxx" /> <!-- ignored -->
         </div>
-        ```
 
-        ```html
-        <div>
-            <img src="xxx" />
-        </div>
-        <img perf-ignore src="xxx" />
+        <div perf-ignore style="background: url(xxx) 0 0 no-repeat;"></div> <!-- ignored -->
         ```
 
     +   `<body perf-random="0.2"></body>`
