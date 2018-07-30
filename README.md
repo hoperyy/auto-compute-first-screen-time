@@ -78,9 +78,6 @@ the distance between average tested time and real first screen time is less than
             }
         }
     });
-
-    // other scripts of current page
-    // ...
     ```
 
 +   Dom control
@@ -90,14 +87,19 @@ the distance between average tested time and real first screen time is less than
         ignore images inside the tagged dom
 
         ```html
-        <body>
-            <div>
-                <img src="xxx" />
-            </div>
-            <div perf-ignore>
-                <img src="xxx" />
-            </div>
-        </body>
+        <div>
+            <img src="xxx" />
+        </div>
+        <div perf-ignore>
+            <img src="xxx" />
+        </div>
+        ```
+
+        ```html
+        <div>
+            <img src="xxx" />
+        </div>
+        <img perf-ignore src="xxx" />
         ```
 
     +   `<body perf-random="0.2"></body>`
