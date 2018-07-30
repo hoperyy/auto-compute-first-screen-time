@@ -13,27 +13,63 @@ var noop = function() {};
 // 强制使用打点方式获取首屏时间
 // supportPerformance = false;
 
+function getRandom() {
+    var random = document.body.getAttribute('perf-random');
+
+    if (typeof random === 'object' && random === null) {
+        random = 1;
+    }
+
+    if (typeof random === 'string') {
+        if (random.replace(/\s*/, '')) {
+            random = parseFloat(random);
+        } else {
+            random = 1; // blank string
+        }
+    }
+
+    // backup
+    if (!random && random !== 0) {
+        random = 1;
+    }
+
+    if (random > 1) {
+        random = 1;
+    }
+
+    if (random < 0) {
+        random = 0;
+    }
+
+    return random;
+}
+
 if (supportQuerySelector) {
     var forceDot = document.querySelector('[perf-dot]') === document.body;
 
-    if (forceDot) {
-        if (supportTiming) {
-            module.exports = require('./dot').auto;
-            module.exports.report = require('./dot').hand;
-        } else {
-            module.exports = noop;
-            module.exports.report = noop;
-        }
+    if (Math.random() > getRandom()) {
+        module.exports = noop;
+        module.exports.report = noop;
     } else {
-        if (supportPerformance) {
-            module.exports = require('./perf').auto;
-            module.exports.report = require('./perf').hand;
-        } else if (supportTiming) {
-            module.exports = require('./dot').auto;
-            module.exports.report = require('./dot').hand;
+        if (forceDot) {
+            if (supportTiming) {
+                module.exports = require('./dot').auto;
+                module.exports.report = require('./dot').hand;
+            } else {
+                module.exports = noop;
+                module.exports.report = noop;
+            }
         } else {
-            module.exports = noop;
-            module.exports.report = noop;
+            if (supportPerformance) {
+                module.exports = require('./perf').auto;
+                module.exports.report = require('./perf').hand;
+            } else if (supportTiming) {
+                module.exports = require('./dot').auto;
+                module.exports.report = require('./dot').hand;
+            } else {
+                module.exports = noop;
+                module.exports.report = noop;
+            }
         }
     }
 } else {

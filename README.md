@@ -28,7 +28,7 @@ the distance between average tested time and real first screen time is less than
 
     ** Run this code before the scripts of page run. **
 
-    ```
+    ```javascript
     var autoComputeFirstScreenTime = require('auto-compute-first-screen-time');
     
     autoComputeFirstScreenTime({
@@ -50,7 +50,6 @@ the distance between average tested time and real first screen time is less than
             exclude: []
         },
 
-        // callback after first screen was got
         // required: false
         onTimeFound: function (result) {
             if (result.success) {
@@ -67,10 +66,11 @@ the distance between average tested time and real first screen time is less than
 
 +   compute first screen time by hand when ready
 
-    ```
+    ```javascript
     var autoComputeFirstScreenTime = require('auto-compute-first-screen-time');
 
     autoComputeFirstScreenTime.report({
+
         // required: false
         onTimeFound: function (result) {
             if (result.success) {
@@ -84,6 +84,33 @@ the distance between average tested time and real first screen time is less than
     // other scripts of current page
     // ...
     ```
+
++   Dom control
+
+    +   `perf-ignore`
+
+        ignore images inside the tagged dom
+
+        ```html
+        <body>
+            <div>
+                <img src="xxx" />
+            </div>
+            <div perf-ignore>
+                <img src="xxx" />
+            </div>
+        </body>
+        ```
+
+    +   `<body perf-random="0.2"></body>`
+
+        the chance of current page will compute first screen time. `1` by default.
+
+        as title, the chance with 20% of current page will compute first screen time;
+
+    +   `<body perf-dot></body>`
+
+        force compute first screen by dotting. (details as **Details** below)
 
 ## Support xhr ?
 
