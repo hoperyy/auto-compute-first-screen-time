@@ -6,11 +6,11 @@ module.exports = {
     getDomCompleteTime: function(callback) {
         var modifyDomCompleteCount = 0;
         var handler = function () {
-            if (performance.timing.domComplete != 0) {
-                callback(performance.timing.domComplete);
+            if (performance.timing.domContentLoadedEventStart != 0) {
+                callback(performance.timing.domContentLoadedEventStart);
             }
 
-            if (++modifyDomCompleteCount >= 10 || performance.timing.domComplete != 0) {
+            if (++modifyDomCompleteCount >= 10 || performance.timing.domContentLoadedEventStart != 0) {
                 clearInterval(modifyDomCompleteTimer);
             }
         };
