@@ -1,6 +1,6 @@
 ## What is this ?
 
-A tool for auto computing first screen time of one page with inaccuracy less than 200ms.
+A tool for computing first screen time of one page with inaccuracy less than 250ms automatically.
 
 ## What's the defination of *first screen time* ?
 
@@ -13,7 +13,7 @@ A tool for auto computing first screen time of one page with inaccuracy less tha
 +   If there is no image existing in first screen, the defination is:
 
     ```
-    window.performance.timing.domComplete
+    window.performance.timing.domContentLoadedEventStart
     ```
 
 ## Precision
@@ -22,9 +22,9 @@ the distance between average tested time and real first screen time is less than
 
 ## How To Use
 
-+   auto compute first screen time
++   compute first screen time automatically
 
-    ** Run this code before the scripts of page run. **
+    Run this code before the scripts of page running.
 
     ```javascript
     var autoComputeFirstScreenTime = require('auto-compute-first-screen-time');
@@ -62,7 +62,7 @@ the distance between average tested time and real first screen time is less than
     // ...
     ```
 
-+   compute first screen time by hand when ready
++   compute first screen time by hand when you find it ready
 
     ```javascript
     var autoComputeFirstScreenTime = require('auto-compute-first-screen-time');
