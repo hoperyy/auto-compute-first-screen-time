@@ -13,7 +13,7 @@ A tool for computing first screen time of one page with inaccuracy less than 250
 +   If there is no image existing in first screen, the defination is:
 
     ```
-    window.performance.timing.domContentLoadedEventStart
+    the last time when dom changed.
     ```
 
 ## Precision
