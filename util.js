@@ -242,7 +242,7 @@ module.exports = {
 
             onStableStatusFound: function() {},
 
-            onPerfStartChange: function() {},
+            onNavigationStartChange: function() {},
 
             request: {
                 limitedIn: [],
@@ -257,8 +257,10 @@ module.exports = {
 
             img: [/(\.)(png|jpg|jpeg|gif|webp)/i], // 匹配图片的正则表达式
 
-            // 监听 body 标签上的 perf-start 变化，如果设置为 true，那么，每次 perf-start 变化均触发首屏时间的自动计算。主要用于单页应用计算首屏
+            // 监听 body 标签上的 resetNavigationStartTag 变化，如果设置为 true，那么，每次 resetNavigationStartTag 变化均触发首屏时间的自动计算。主要用于单页应用计算首屏
             watchPerfStartChange: false,
+
+            resetNavigationStartTag: ['perf-start']
         }
     },
 
@@ -461,7 +463,7 @@ module.exports = {
     mergeUserConfig: function(_global, userConfig) {
         if (userConfig) {
             for (var userConfigKey in userConfig) {
-                if (['watingTimeWhenDefineStaticPage', 'onReport', 'onStableStatusFound', 'renderTimeAfterGettingData', 'onAllXhrResolved', 'onPerfStartChange', 'watchPerfStartChange'].indexOf(userConfigKey) !== -1) {
+                if (['watingTimeWhenDefineStaticPage', 'onReport', 'onStableStatusFound', 'renderTimeAfterGettingData', 'onAllXhrResolved', 'onNavigationStartChange', 'watchPerfStartChange'].indexOf(userConfigKey) !== -1) {
                     _global[userConfigKey] = userConfig[userConfigKey];
                 }
             }
@@ -482,6 +484,10 @@ module.exports = {
                 } else {
                     console.error('[auto-compute-first-screen-time] param "img" should be type RegExp');
                 }
+            }
+
+            if (userConfig.resetNavigationStartTag) {
+                _global.resetNavigationStartTag = _global.resetNavigationStartTag.concat(userConfig.resetNavigationStartTag);
             }
         }
     },
@@ -553,36 +559,52 @@ module.exports = {
         }
     },
 
-    onPerfStartChange: function(callback) {
-        var prePerfStartTimeStamp;
-        var curPerfStartTimeStamp;
+    onNavigationStartChange: function(tags, callback) {
+        var preTime = this.NAV_START_TIME;
+        var curTime;
 
-        var getPerfStart = function () {
-            return window.parseFloat(document.body.getAttribute('perf-start'));
-        };
-        var handler = function() {
-            curPerfStartTimeStamp = getPerfStart() || this.NAV_START_TIME;
-        
-            var perfChanged = prePerfStartTimeStamp && prePerfStartTimeStamp != curPerfStartTimeStamp;
+        var preValue;
+        var curValue;
 
-            if (perfChanged) {
-                callback(prePerfStartTimeStamp, curPerfStartTimeStamp);
+        var getNavigationStartTagValue = function () {
+            var rt;
+            for (var i = 0, len = tags.length; i < len; i++) {
+                rt = document.body.getAttribute(tags[i]);
+
+                if (rt) {
+                    break;
+                }
             }
 
-            prePerfStartTimeStamp = curPerfStartTimeStamp;
+            return rt;
+        };
+        var checkNavStartTimeChange = function() {
+            var curValue = getNavigationStartTagValue();
+        
+            // 从无到有、从有到无、都有且一致：不被认为标志变化
+            // 都有，且不一致，被认为标志变化
+            var navStartChanged = preValue && curValue && preValue != curValue;
+
+            if (navStartChanged) {
+                curTime = new Date().now();
+                callback(preTime, curTime);
+                preTime = curTime;
+            }
+
+            preValue = curValue;
         };
 
         if (MutationObserver) {
             var observer = new MutationObserver(function (mutations, observer) {
                 mutations.forEach(function (mutation) {
-                    if (mutation.attributeName === 'perf-start') {
-                        handler();
+                    if (tags.indexOf(mutation.attributeName) !== -1) {
+                        checkNavStartTimeChange();
                     }
                 });
             });
             observer.observe(document.body, { attributes: true });
         } else {
-            setInterval(handler, 250);
+            setInterval(checkNavStartTimeChange, 250);
         }
     }
 };

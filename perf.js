@@ -262,8 +262,8 @@ module.exports = {
         var api = go();
 
         if (api.global.watchPerfStartChange) {
-            util.onPerfStartChange(function (prePerfStartTimeStamp, curPerfStartTimeStamp) {
-                api.global.onPerfStartChange(prePerfStartTimeStamp, curPerfStartTimeStamp);
+            util.onNavigationStartChange(api.global.resetNavigationStartTag, function (prePerfStartTimeStamp, curPerfStartTimeStamp) {
+                api.global.onNavigationStartChange(prePerfStartTimeStamp, curPerfStartTimeStamp);
                 go(curPerfStartTimeStamp);
             });
         }
