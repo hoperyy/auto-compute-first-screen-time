@@ -225,16 +225,11 @@ function generateApi() {
         util.mergeUserOptions(_global, userOptions);
     }
 
-    function watchUrlChange() {
-        util.watchUrlChange(_global);
-    }
-
     return {
         mergeUserOptions: mergeUserOptions,
         testStaticPage: testStaticPage,
         overrideRequest: overrideRequest,
         recordFirstScreenInfo: recordFirstScreenInfo,
-        watchUrlChange: watchUrlChange,
         _global: _global
     };
 }
@@ -246,7 +241,6 @@ module.exports = {
         api.mergeUserOptions(userOptions);
         api.testStaticPage();
         api.overrideRequest();
-        api.watchUrlChange();
     },
     hand: function (userOptions) {
         var api = generateApi('hand');

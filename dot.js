@@ -471,17 +471,12 @@ function generateApi() {
         util.mergeUserOptions(_global, userOptions);
     }
 
-    function watchUrlChange() {
-        util.watchUrlChange(_global);
-    }
-
     return {
         mergeUserOptions: mergeUserOptions,
         testStaticPage: testStaticPage,
         observeDomChange: observeDomChange,
         overrideRequest: overrideRequest,
         recordDomInfo: recordDomInfo,
-        watchUrlChange: watchUrlChange,
         onStopObserving: onStopObserving,
         _global: _global
     };
@@ -495,7 +490,6 @@ module.exports = {
         api.testStaticPage();
         api.observeDomChange();
         api.overrideRequest();
-        api.watchUrlChange();
     },
     hand: function(userOptions) {
         var api = generateApi();

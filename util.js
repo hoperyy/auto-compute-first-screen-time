@@ -1,5 +1,5 @@
 module.exports = {
-    version: '4.3.2',
+    version: '4.3.3',
 
     NAV_START_TIME: window.performance.timing.navigationStart,
 
@@ -535,47 +535,6 @@ module.exports = {
                 }
             }, _global.options.watingTimeWhenDefineStaticPage);
         });
-    },
-
-    watchUrlChange: function(_global) {
-        var _this = this;
-
-        if (/auto/.test(_global.reportDesc)) {
-            this._appendScript(function () {
-                var urlChangeStore = _global.urlChangeStore;
-
-                var preHref = '';
-                var preTimeStamp = 0;
-
-                var handler = function () {
-                    // 记录当前 href
-                    var href = window.location.href;
-                    if (href !== preHref) {
-                        var timeStamp = _this.getTime();
-                        var durationWithPreUrl = preTimeStamp ? timeStamp - preTimeStamp : 0;
-                        urlChangeStore.push({
-                            timeStamp: timeStamp,
-                            href: href,
-                            durationWithPreUrl: durationWithPreUrl
-                        });
-
-                        preHref = href;
-                        preTimeStamp = timeStamp;
-
-                        // 如果在自动监控性能模式下，并且两次 url 变化的时间间隔超过 300ms，则退出上报首屏性能数据
-                        if (durationWithPreUrl >= 300) {
-                            console.log('[auto-compute-first-screen-time] url changes after 300ms, abort reporting first screen time.');
-                            _global.abortReport = true;
-                        }
-                    }
-                };
-
-                window.addEventListener('hashchange', handler);
-                window.addEventListener('popstate', handler);
-
-                handler();
-            });
-        }
     },
 
     watchDomUpdate: function(_global) {
