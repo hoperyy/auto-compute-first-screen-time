@@ -242,6 +242,8 @@ module.exports = {
 
             onStableStatusFound: function() {},
 
+            onPerfStartChange: function() {},
+
             request: {
                 limitedIn: [],
                 exclude: [/(sockjs)|(socketjs)|(socket\.io)/]
@@ -459,7 +461,7 @@ module.exports = {
     mergeUserConfig: function(_global, userConfig) {
         if (userConfig) {
             for (var userConfigKey in userConfig) {
-                if (['watingTimeWhenDefineStaticPage', 'onReport', 'onStableStatusFound', 'renderTimeAfterGettingData', 'onAllXhrResolved', 'watchPerfStartChange'].indexOf(userConfigKey) !== -1) {
+                if (['watingTimeWhenDefineStaticPage', 'onReport', 'onStableStatusFound', 'renderTimeAfterGettingData', 'onAllXhrResolved', 'onPerfStartChange', 'watchPerfStartChange'].indexOf(userConfigKey) !== -1) {
                     _global[userConfigKey] = userConfig[userConfigKey];
                 }
             }

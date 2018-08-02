@@ -504,6 +504,7 @@ module.exports = {
 
         if (api.global.watchPerfStartChange) {
             util.onPerfStartChange(function (prePerfStartTimeStamp, curPerfStartTimeStamp) {
+                api.global.onPerfStartChange(prePerfStartTimeStamp, curPerfStartTimeStamp);
                 go(curPerfStartTimeStamp);
             });
         }

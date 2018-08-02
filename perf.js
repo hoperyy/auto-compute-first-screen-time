@@ -116,11 +116,13 @@ function generateApi() {
                     var imgUrl = sourceItem.name;
                     if (firstScreenImages.indexOf(util.formateUrl(imgUrl)) !== -1) {
                         matchedLength++;
+
+                        var responseEnd = parseInt(sourceItem.responseEnd) + performance.timing.navigationStart - _global.forcedNavStartTimeStamp;
+                        var fetchStart = parseInt(sourceItem.fetchStart) + performance.timing.navigationStart - _global.forcedNavStartTimeStamp;
                         firstScreenImagesDetail.push({
                             src: imgUrl,
-                            responseEnd: parseInt(sourceItem.responseEnd),
-                            fetchStart: parseInt(sourceItem.fetchStart),
-                            // details: sourceItem
+                            responseEnd: responseEnd < 0 ? 0 : responseEnd,
+                            fetchStart: fetchStart < 0 ? 0 : fetchStart
                         });
                     }
                 }
@@ -261,7 +263,7 @@ module.exports = {
 
         if (api.global.watchPerfStartChange) {
             util.onPerfStartChange(function (prePerfStartTimeStamp, curPerfStartTimeStamp) {
-                console.log('~~~ onPerfStartChange', curPerfStartTimeStamp);
+                api.global.onPerfStartChange(prePerfStartTimeStamp, curPerfStartTimeStamp);
                 go(curPerfStartTimeStamp);
             });
         }
