@@ -20,12 +20,10 @@ function generateApi() {
         // 记录图片加载完成的时刻（唯一）
         imgMap: {},
 
-        options: {
-            // 打点间隔
-            dotDelay: 250,
+        // 打点间隔
+        dotDelay: 250,
 
-            abortTimeWhenDelay: 500 // 监控打点会引起页面重绘，如果引发页面重绘的时间超过了该值，则不再做性能统计
-        }
+        abortTimeWhenDelay: 500 // 监控打点会引起页面重绘，如果引发页面重绘的时间超过了该值，则不再做性能统计
     });
 
     util.watchDomUpdate(_global);
@@ -107,10 +105,10 @@ function generateApi() {
 
         if (_global.abortByDelayTimeout) {
             // 上报
-            _global.options.onTimeFound({
+            _global.onReport({
                 success: false,
                 delayFirstScreen: _global.delayAll,
-                abortTimeSetting: _global.options.abortTimeWhenDelay,
+                abortTimeSetting: _global.abortTimeWhenDelay,
                 url: window.location.href.substring(0, 200),
                 dotList: _global.dotList,
                 type: 'dot'
@@ -119,6 +117,8 @@ function generateApi() {
             _global.abortReport = true;
             return;
         }
+
+        _global.abortReport = true;
 
         // 为 _global.imgMap 添加是否是首屏标志
         var targetFirstScreenImages = null;
@@ -183,9 +183,7 @@ function generateApi() {
         };
 
         // 输出结果
-        _global.options.onTimeFound(resultObj);
-
-        _global.abortReport = true;
+        _global.onReport(resultObj);
     }
 
     function _getFirstScreenImagesDetail() {
@@ -218,7 +216,7 @@ function generateApi() {
         var recordFirstScreen = param && param.recordFirstScreen;
 
         // 如果在打点过程中，并且性能监控打点引发的渲染 delay 超过了设置的阈值，则停止性能监控打点
-        if (_global.delayAll >= _global.options.abortTimeWhenDelay) {
+        if (_global.delayAll >= _global.abortTimeWhenDelay) {
             _global.abortByDelayTimeout = true;
             return;
         }
@@ -334,7 +332,7 @@ function generateApi() {
 
         // 遍历所有 dom
         while (currentNode) {
-            var imgSrc = util.getImgSrcFromDom(currentNode, _global.options.img);
+            var imgSrc = util.getImgSrcFromDom(currentNode, _global.img);
 
             // 如果没有 imgSrc，则直接读取下一个 dom 的信息
             if (!imgSrc) {
@@ -393,10 +391,12 @@ function generateApi() {
         // 向前递推，找到离稳定状态最近的打点对象
         var targetDotObj = _getTargetDotObj(_global.dotList);
 
+        _global.onStableStatusFound(targetDotObj);
+
         targetDotObj.isTargetDot = true;
 
         // 触发事件：所有异步请求已经发布完毕
-        _global.options.onAllXhrResolved && _global.options.onAllXhrResolved(targetDotObj.dotTimeStamp);
+        _global.onAllXhrResolved && _global.onAllXhrResolved(targetDotObj.dotTimeStamp);
 
         // 如果 target 时刻的图片已经加载完毕，则上报该信息中记录的完成时刻
         var checkTimer = null;
@@ -443,7 +443,7 @@ function generateApi() {
 
         var dotCallback = function (param) {
             var now = util.getTime();
-            if (lastObserverRunTime && now - lastObserverRunTime < _global.options.dotDelay) {
+            if (lastObserverRunTime && now - lastObserverRunTime < _global.dotDelay) {
                 return;
             }
 
@@ -455,7 +455,7 @@ function generateApi() {
         // 记录首屏 DOM 的变化
         _global.intervalDotTimer = setInterval(function () {
             dotCallback({ isFromInternal: true });
-        }, _global.options.dotDelay);
+        }, _global.dotDelay);
 
         // 触发回调前，先记录初始时刻的 dom 信息
         dotCallback();
@@ -467,35 +467,35 @@ function generateApi() {
         });
     }
 
-    function mergeUserOptions(userOptions) {
-        util.mergeUserOptions(_global, userOptions);
+    function mergeUserConfig(userConfig) {
+        util.mergeUserConfig(_global, userConfig);
     }
 
     return {
-        mergeUserOptions: mergeUserOptions,
+        mergeUserConfig: mergeUserConfig,
         testStaticPage: testStaticPage,
         observeDomChange: observeDomChange,
         overrideRequest: overrideRequest,
         recordDomInfo: recordDomInfo,
         onStopObserving: onStopObserving,
-        _global: _global
+        global: _global
     };
 }
 
 module.exports = {
-    auto: function(userOptions) {
+    auto: function(userConfig) {
         var api = generateApi();
-        api._global.reportDesc = 'auto-dot';
-        api.mergeUserOptions(userOptions);
+        api.global.reportDesc = 'auto-dot';
+        api.mergeUserConfig(userConfig);
         api.testStaticPage();
         api.observeDomChange();
         api.overrideRequest();
     },
-    hand: function(userOptions) {
+    hand: function(userConfig) {
         var api = generateApi();
-        api._global.reportDesc = 'hand-dot';
-        api.mergeUserOptions(userOptions);
-        api._global.forcedReportTimeStamp = new Date().getTime();
+        api.global.reportDesc = 'hand-dot';
+        api.global.forcedReportTimeStamp = new Date().getTime();
+        api.mergeUserConfig(userConfig);
         api.onStopObserving();
     }
 };

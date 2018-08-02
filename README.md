@@ -49,7 +49,7 @@ the distance between average tested time and real first screen time is less than
         },
 
         // required: false
-        onTimeFound: function (result) {
+        onReport: function (result) {
             if (result.success) {
                 console.log(result.firstScreenTime)
             } else {
@@ -68,9 +68,8 @@ the distance between average tested time and real first screen time is less than
     var autoComputeFirstScreenTime = require('auto-compute-first-screen-time');
 
     autoComputeFirstScreenTime.report({
-
         // required: false
-        onTimeFound: function (result) {
+        onReport: function (result) {
             if (result.success) {
                 console.log(result.firstScreenTime)
             } else {

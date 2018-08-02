@@ -1,5 +1,7 @@
+var MutationObserver = window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
+
 module.exports = {
-    version: '4.3.3',
+    version: '5.0.0',
 
     NAV_START_TIME: window.performance.timing.navigationStart,
 
@@ -233,22 +235,28 @@ module.exports = {
             // 强制上报的时间，用于手动上报并且首屏没有图片的情况
             forcedReportTimeStamp: 0,
 
-            // 一些可配置项，下面是默认值
-            options: {
-                onTimeFound: function () { },
-                request: {
-                    limitedIn: [],
-                    exclude: [/(sockjs)|(socketjs)|(socket\.io)/]
-                },
+            // 计算首屏时间耗时的开始时刻，默认是 navigationStart，对于单页应用，该值有可能修改
+            forcedNavStartTimeStamp: window.performance.timing.navigationStart,
 
-                // 获取数据后，认为渲染 dom 的时长；同时也是串联请求的等待间隔
-                renderTimeAfterGettingData: 300,
+            onReport: function() {},
 
-                // onload 之后延时一段时间，如果到期后仍然没有异步请求发出，则认为是纯静态页面
-                watingTimeWhenDefineStaticPage: 3000,
+            onStableStatusFound: function() {},
 
-                img: [/(\.)(png|jpg|jpeg|gif|webp)/i] // 匹配图片的正则表达式
-            }
+            request: {
+                limitedIn: [],
+                exclude: [/(sockjs)|(socketjs)|(socket\.io)/]
+            },
+
+            // 获取数据后，认为渲染 dom 的时长；同时也是串联请求的等待间隔
+            renderTimeAfterGettingData: 300,
+
+            // onload 之后延时一段时间，如果到期后仍然没有异步请求发出，则认为是纯静态页面
+            watingTimeWhenDefineStaticPage: 3000,
+
+            img: [/(\.)(png|jpg|jpeg|gif|webp)/i], // 匹配图片的正则表达式
+
+            // 监听 body 标签上的 perf-start 变化，如果设置为 true，那么，每次 perf-start 变化均触发首屏时间的自动计算。主要用于单页应用计算首屏
+            watchPerfStartChange: false,
         }
     },
 
@@ -259,15 +267,7 @@ module.exports = {
     mergeGlobal: function(defaultGlobal, privateGlobal) {
         var key;
         for (key in privateGlobal) {
-            if (!/options/.test(key)) {
-                defaultGlobal[key] = privateGlobal[key];
-            }
-        }
-
-        if (privateGlobal.options) {
-            for (key in privateGlobal.options) {
-                defaultGlobal.options[key] = privateGlobal.options[key];
-            }
+            defaultGlobal[key] = privateGlobal[key];
         }
 
         return defaultGlobal;
@@ -359,14 +359,14 @@ module.exports = {
             }
 
             // 如果发送请求地址不符合白名单和黑名单规则。则认为不该抓取该请求到队列
-            for (var i = 0, len = _global.options.request.limitedIn.length; i < len; i++) {
-                if (!_global.options.request.limitedIn[i].test(url)) {
+            for (var i = 0, len = _global.request.limitedIn.length; i < len; i++) {
+                if (!_global.request.limitedIn[i].test(url)) {
                     shouldCatch = false;
                 }
             }
 
-            for (var i = 0, len = _global.options.request.exclude.length; i < len; i++) {
-                if (_global.options.request.exclude[i].test(url)) {
+            for (var i = 0, len = _global.request.exclude.length; i < len; i++) {
+                if (_global.request.exclude[i].test(url)) {
                     shouldCatch = false;
                 }
             }
@@ -416,7 +416,7 @@ module.exports = {
             _global.requestDetails[requestKey].completeTime = returnTime - _this.NAV_START_TIME;
 
             // 从这个请求返回的时刻起，延续一段时间，该时间段内的请求也需要被监听
-            _global.catchRequestTimeSections.push([returnTime, returnTime + _global.options.renderTimeAfterGettingData]);
+            _global.catchRequestTimeSections.push([returnTime, returnTime + _global.renderTimeAfterGettingData]);
 
             var renderDelayTimer = setTimeout(function () {
                 requestTimerStatusPool[requestKey] = 'stopped';
@@ -424,7 +424,7 @@ module.exports = {
                     onStable();
                 }
                 clearTimeout(renderDelayTimer);
-            }, _global.options.renderTimeAfterGettingData);
+            }, _global.renderTimeAfterGettingData);
         };
 
         var overideXhr = function (onRequestSend, afterRequestReturn) {
@@ -456,37 +456,27 @@ module.exports = {
         overideXhr(onRequestSend, afterRequestReturn);
     },
 
-    mergeUserOptions: function(_global, userOptions) {
-        if (userOptions) {
-            if (userOptions.watingTimeWhenDefineStaticPage) {
-                _global.options.watingTimeWhenDefineStaticPage = userOptions.watingTimeWhenDefineStaticPage;
+    mergeUserConfig: function(_global, userConfig) {
+        if (userConfig) {
+            for (var userConfigKey in userConfig) {
+                if (['watingTimeWhenDefineStaticPage', 'onReport', 'onStableStatusFound', 'renderTimeAfterGettingData', 'onAllXhrResolved', 'watchPerfStartChange'].indexOf(userConfigKey) !== -1) {
+                    _global[userConfigKey] = userConfig[userConfigKey];
+                }
             }
 
-            if (userOptions.onTimeFound) {
-                _global.options.onTimeFound = userOptions.onTimeFound;
-            }
-
-            var requestConfig = userOptions.request || userOptions.xhr;
+            var requestConfig = userConfig.request || userConfig.xhr;
             if (requestConfig) {
                 if (requestConfig.limitedIn) {
-                    _global.options.request.limitedIn = _global.options.request.limitedIn.concat(requestConfig.limitedIn);
+                    _global.request.limitedIn = _global.request.limitedIn.concat(requestConfig.limitedIn);
                 }
                 if (requestConfig.exclude) {
-                    _global.options.request.exclude = _global.options.request.exclude.concat(requestConfig.exclude);
+                    _global.request.exclude = _global.request.exclude.concat(requestConfig.exclude);
                 }
             }
 
-            if (userOptions.renderTimeAfterGettingData) {
-                _global.options.renderTimeAfterGettingData = userOptions.renderTimeAfterGettingData;
-            }
-
-            if (userOptions.onAllXhrResolved) {
-                _global.options.onAllXhrResolved = userOptions.onAllXhrResolved;
-            }
-
-            if (userOptions.img) {
-                if (typeof userOptions.img === 'object' && typeof userOptions.img.test === 'function') {
-                    _global.options.img.push(userOptions.img);
+            if (userConfig.img) {
+                if (typeof userConfig.img === 'object' && typeof userConfig.img.test === 'function') {
+                    _global.img.push(userConfig.img);
                 } else {
                     console.error('[auto-compute-first-screen-time] param "img" should be type RegExp');
                 }
@@ -524,21 +514,28 @@ module.exports = {
     },
 
     testStaticPage: function(onStable, _global) {
-        window.addEventListener('load', function () {
+        var handler = function() {
+            window.autoComputeFirstScreenTimeOnloadFinishedTag = true;
+
             // 如果脚本运行完毕，延时一段时间后，再判断页面是否发出异步请求，如果页面还没有发出异步请求，则认为该时刻为稳定时刻，尝试上报
             var timer = setTimeout(function () {
-                // clear
                 clearTimeout(timer);
 
                 if (!_global.isFirstRequestSent) {
                     onStable();
                 }
-            }, _global.options.watingTimeWhenDefineStaticPage);
-        });
+            }, _global.watingTimeWhenDefineStaticPage);
+        };
+
+        if (window.autoComputeFirstScreenTimeOnloadFinishedTag) {
+            handler();
+        } else {
+            window.addEventListener('load', handler);
+        }
     },
 
     watchDomUpdate: function(_global) {
-        if (window.MutationObserver) {
+        if (MutationObserver) {
             _global.mutationObserver = new MutationObserver(function () {
                 _global.domUpdateTimeStamp = new Date().getTime();
             });
@@ -551,6 +548,39 @@ module.exports = {
     stopWatchDomUpdate: function(_global) {
         if (_global.mutationObserver) {
             _global.mutationObserver.disconnect();
+        }
+    },
+
+    onPerfStartChange: function(callback) {
+        var prePerfStartTimeStamp;
+        var curPerfStartTimeStamp;
+
+        var getPerfStart = function () {
+            return window.parseFloat(document.body.getAttribute('perf-start'));
+        };
+        var handler = function() {
+            curPerfStartTimeStamp = getPerfStart() || '';
+        
+            var perfChanged = prePerfStartTimeStamp && prePerfStartTimeStamp != curPerfStartTimeStamp;
+
+            if (perfChanged) {
+                callback(prePerfStartTimeStamp, curPerfStartTimeStamp || this.NAV_START_TIME);
+            }
+
+            prePerfStartTimeStamp = curPerfStartTimeStamp;
+        };
+
+        if (MutationObserver) {
+            var observer = new MutationObserver(function (mutations, observer) {
+                mutations.forEach(function (mutation) {
+                    if (mutation.attributeName === 'perf-start') {
+                        handler();
+                    }
+                });
+            });
+            observer.observe(document.body, { attributes: true });
+        } else {
+            setInterval(handler, 250);
         }
     }
 };

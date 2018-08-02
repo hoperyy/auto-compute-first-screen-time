@@ -28,7 +28,9 @@ function generateApi() {
         _global.stopCatchingRequest = true;
 
         // 获取当前时刻获取的首屏信息，并根据该信息获取首屏时间
-        recordFirstScreenInfo();
+        var stableObject = recordFirstScreenInfo();
+
+        _global.onStableStatusFound(stableObject);
     }
 
     function _report(resultObj) {
@@ -37,12 +39,14 @@ function generateApi() {
             return;
         }
 
+        _global.abortReport = true;
+
         // 为 resultObj 添加 _global.ignoredImages 字段
         resultObj.ignoredImages = _global.ignoredImages;
         resultObj.device = _global.device;
         resultObj.success = true;
 
-        _global.options.onTimeFound(resultObj);
+        _global.onReport(resultObj);
     }
  
     // 重操作：记录运行该方法时刻的 dom 信息，主要是 images
@@ -149,6 +153,8 @@ function generateApi() {
 
             getCompleteTime();
         }
+
+        return resultObj;
     }
 
     function _getImagesInFirstScreen() {
@@ -174,7 +180,7 @@ function generateApi() {
         }
 
         while (currentNode) {
-            var imgSrc = util.getImgSrcFromDom(currentNode, _global.options.img);
+            var imgSrc = util.getImgSrcFromDom(currentNode, _global.img);
 
             if (!imgSrc) {
                 currentNode = nodeIterator.nextNode();
@@ -221,32 +227,43 @@ function generateApi() {
         });
     }
 
-    function mergeUserOptions(userOptions) {
-        util.mergeUserOptions(_global, userOptions);
+    function mergeUserConfig(userConfig) {
+        util.mergeUserConfig(_global, userConfig);
     }
 
     return {
-        mergeUserOptions: mergeUserOptions,
+        mergeUserConfig: mergeUserConfig,
         testStaticPage: testStaticPage,
         overrideRequest: overrideRequest,
         recordFirstScreenInfo: recordFirstScreenInfo,
-        _global: _global
+        global: _global
     };
 }
 
 module.exports = {
-    auto: function (userOptions) {
-        var api = generateApi('auto');
-        api._global.reportDesc = 'auto-perf';
-        api.mergeUserOptions(userOptions);
-        api.testStaticPage();
-        api.overrideRequest();
+    auto: function (userConfig) {
+        var go = function() {
+            var api = generateApi('auto');
+            api.global.reportDesc = 'auto-perf';
+            api.mergeUserConfig(userConfig);
+            api.testStaticPage();
+            api.overrideRequest();
+            return api;
+        };
+
+        var api = go();
+
+        if (api.global.watchPerfStartChange) {
+            util.onPerfStartChange(function () {
+                go();
+            });
+        }
     },
-    hand: function (userOptions) {
+    hand: function (userConfig) {
         var api = generateApi('hand');
-        api._global.reportDesc = 'hand-perf';
-        api._global.forcedReportTimeStamp = new Date().getTime();
-        api.mergeUserOptions(userOptions);
+        api.global.reportDesc = 'hand-perf';
+        api.global.forcedReportTimeStamp = new Date().getTime();
+        api.mergeUserConfig(userConfig);
         api.recordFirstScreenInfo('perf-hand');
     }
 }
