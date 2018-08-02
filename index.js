@@ -1,5 +1,5 @@
 /**
- * @description auto compute first screen time of one page with inaccuracy less than 250ms
+ * @description compute first screen time of one page with inaccuracy less than 250ms
  * @author 刘远洋 https://github.com/hoperyy
  * @date 2018/02/22
  */
@@ -11,7 +11,7 @@ var supportTiming = window.performance && window.performance.timing;
 var noop = function() {};
 
 // 强制使用打点方式获取首屏时间
-// supportPerformance = false;
+supportPerformance = false;
 
 function getRandom() {
     var random = document.body.getAttribute('perf-random');

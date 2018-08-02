@@ -7,20 +7,15 @@ var win = window;
 var doc = win.document;
 var util = require('./util');
 
-function generateApi(recordType) {
+function generateApi() {
     var _global = util.mergeGlobal(util.initGlobal(), {
         intervalDotTimer: null,
-
-        // dom 变化监听器
-        mutationObserver: null,
 
         // 是否已经停止监听的标志
         hasStoppedObserve: false,
 
         // 打点数组
         dotList: [],
-
-        recordType: recordType,
 
         // 记录图片加载完成的时刻（唯一）
         imgMap: {},
@@ -32,6 +27,8 @@ function generateApi(recordType) {
             abortTimeWhenDelay: 500 // 监控打点会引起页面重绘，如果引发页面重绘的时间超过了该值，则不再做性能统计
         }
     });
+
+    util.watchDomUpdate(_global);
 
     function _getTargetDotObj() {
         // 按照打点时刻倒序
@@ -102,7 +99,7 @@ function generateApi(recordType) {
     }
 
     // 只会执行一次
-    function _report(targetObj, reportDesc) {
+    function _report(targetObj) {
         // 检查是否取消上报
         if (_global.abortReport) {
             return;
@@ -166,7 +163,7 @@ function generateApi(recordType) {
         var resultObj = {
             maxErrorTime: targetObj.maxErrorTime, // 最大误差值
             dotList: _global.dotList, // 打点列表
-            isStaticPage: _global.isFirstRequestSent ? false : (_global.recordType === 'auto' ? true : 'unknown'), // 是否是静态页面（没有请求发出）
+            isStaticPage: _global.isFirstRequestSent ? false : (/auto/.test(_global.reportDesc) ? true : 'unknown'), // 是否是静态页面（没有请求发出）
             requests: util.transRequestDetails2Arr(_global), // 监控期间拦截的请求
             firstScreenTime: targetObj.firstScreenTimeStamp - util.NAV_START_TIME, // 首屏时长
             firstScreenTimeStamp: targetObj.firstScreenTimeStamp, // 首屏结束的时刻
@@ -178,7 +175,7 @@ function generateApi(recordType) {
             type: 'dot',
             version: util.version,
             runtime: util.getTime() - scriptStartTime, // 检测脚本运行的时长
-            reportDesc: reportDesc,
+            reportDesc: _global.reportDesc,
             url: window.location.href.substring(0, 200), // 当前页面 url
             ignoredImages: _global.ignoredImages, // 计算首屏时被忽略的图片
             device: _global.device, // 当前设备信息
@@ -216,7 +213,7 @@ function generateApi(recordType) {
         return firstScreenImagesDetail;
     }
 
-    // 记录运行该方法时刻的 dom 信息，主要是 images；运行时机为每次 _global.mutationObserver 回调触发或定时器触发
+    // 记录运行该方法时刻的 dom 信息，主要是 images；运行时机为定时器触发
     function recordDomInfo(param) {
         var recordFirstScreen = param && param.recordFirstScreen;
 
@@ -376,7 +373,7 @@ function generateApi(recordType) {
         return imgList;
     }
 
-    function onStopObserving(reportDesc) {
+    function onStopObserving() {
         if (_global.hasStoppedObserve) {
             return;
         }
@@ -386,14 +383,12 @@ function generateApi(recordType) {
         // 标记停止监听请求
         _global.stopCatchingRequest = true;
 
-        if (_global.mutationObserver) {
-            _global.mutationObserver.disconnect();
-        }
+        util.stopWatchDomUpdate(_global);
 
         clearInterval(_global.intervalDotTimer);
 
         // 记录当前时刻 dom 信息，且当前时刻为首屏图片数量等稳定的时刻
-        recordDomInfo({ recordFirstScreen: true, reportDesc: reportDesc });
+        recordDomInfo({ recordFirstScreen: true });
 
         // 向前递推，找到离稳定状态最近的打点对象
         var targetDotObj = _getTargetDotObj(_global.dotList);
@@ -407,7 +402,7 @@ function generateApi(recordType) {
         var checkTimer = null;
         var check = function () {
             if (targetDotObj.finished) {
-                reportTargetObj(targetDotObj, reportDesc);
+                reportTargetObj(targetDotObj);
                 clearInterval(checkTimer);
             }
         };
@@ -415,18 +410,23 @@ function generateApi(recordType) {
         check();
     }
 
-    function reportTargetObj(dotObj, reportDesc) {
+    function reportTargetObj(dotObj) {
         // 轮询修正 domComplete 的值
         if (dotObj.firstScreenImages.length === 0) {
-            util.getDomCompleteTime(function (domCompleteStamp) {
-                dotObj.firstScreenTimeStamp = domCompleteStamp;
-                _report(dotObj, reportDesc);
-            });
+            if (_global.forcedReportTimeStamp) {
+                dotObj.firstScreenTimeStamp = _global.forcedReportTimeStamp;
+                _report(dotObj);
+            } else {
+                util.getLastDomUpdateTime(_global, function (lastDomUpdateStamp) {
+                    dotObj.firstScreenTimeStamp = lastDomUpdateStamp;
+                    _report(dotObj);
+                });
+            }
         } else {
             var lastImgDownloadDetail = _getLastImgDownloadDetail(_global.dotList[0].firstScreenImages);
             dotObj.firstScreenTimeStamp = lastImgDownloadDetail.loadTimeStamp; // 获取此次打点最后一张图片 onload 的时刻
             dotObj.maxErrorTime = lastImgDownloadDetail.maxErrorTime; // 获取此次打点时最后一张图片 onload 时间的误差值
-            _report(dotObj, reportDesc);
+            _report(dotObj);
         }
     }
 
@@ -457,16 +457,6 @@ function generateApi(recordType) {
             dotCallback({ isFromInternal: true });
         }, _global.options.dotDelay);
 
-        if (window.MutationObserver) {
-            _global.mutationObserver = new window.MutationObserver(function () {
-                dotCallback({ mutation: true });
-            });
-            _global.mutationObserver.observe(document.body, {
-                childList: true,
-                subtree: true
-            });
-        }
-
         // 触发回调前，先记录初始时刻的 dom 信息
         dotCallback();
     }
@@ -491,14 +481,16 @@ function generateApi(recordType) {
         observeDomChange: observeDomChange,
         overrideRequest: overrideRequest,
         recordDomInfo: recordDomInfo,
-        watchUrlChange: watchUrlChange
+        watchUrlChange: watchUrlChange,
+        onStopObserving: onStopObserving,
+        _global: _global
     };
 }
 
 module.exports = {
     auto: function(userOptions) {
-        var api = generateApi('auto');
-
+        var api = generateApi();
+        api._global.reportDesc = 'auto-dot';
         api.mergeUserOptions(userOptions);
         api.testStaticPage();
         api.observeDomChange();
@@ -506,14 +498,11 @@ module.exports = {
         api.watchUrlChange();
     },
     hand: function(userOptions) {
-        var api = generateApi('hand');
-        
+        var api = generateApi();
+        api._global.reportDesc = 'hand-dot';
         api.mergeUserOptions(userOptions);
-        api.recordDomInfo({
-            isTargetDot: true,
-            recordFirstScreen: true,
-            reportDesc: 'hand-dot'
-        });
+        api._global.forcedReportTimeStamp = new Date().getTime();
+        api.onStopObserving();
     }
 };
 

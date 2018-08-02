@@ -1,23 +1,27 @@
 module.exports = {
-    version: '4.2.3',
+    version: '4.3.0',
 
     NAV_START_TIME: window.performance.timing.navigationStart,
 
-    getDomCompleteTime: function(callback) {
-        var modifyDomCompleteCount = 0;
-        var handler = function () {
-            if (performance.timing.domContentLoadedEventStart != 0) {
-                callback(performance.timing.domContentLoadedEventStart);
-            }
+    getLastDomUpdateTime: function(_global, callback) {
+        if (_global.domUpdateTimeStamp) {
+            callback(_global.domUpdateTimeStamp);
+        } else {
+            var count = 0;
+            var handler = function () {
+                if (performance.timing.domContentLoadedEventStart != 0) {
+                    callback(performance.timing.domContentLoadedEventStart);
+                }
 
-            if (++modifyDomCompleteCount >= 10 || performance.timing.domContentLoadedEventStart != 0) {
-                clearInterval(modifyDomCompleteTimer);
-            }
-        };
-        // 轮询获取 domComplete 的值，最多轮询 10 次
-        var modifyDomCompleteTimer = setInterval(handler, 500);
+                if (++count >= 10 || performance.timing.domContentLoadedEventStart != 0) {
+                    clearInterval(timer);
+                }
+            };
+            // 轮询获取 domComplete 的值，最多轮询 10 次
+            var timer = setInterval(handler, 500);
 
-        handler();
+            handler();
+        }
     },
 
     getImgSrcFromDom: function (dom, imgFilter) {
@@ -197,8 +201,6 @@ module.exports = {
             // 是否抓取过请求的标志位
             isFirstRequestSent: false,
 
-            recordType: 'auto', // 记录首屏记录方式，auto / hand
-
             // 可以抓取请求的时间窗口队列
             catchRequestTimeSections: [],
 
@@ -221,6 +223,15 @@ module.exports = {
 
             // 是否退出上报
             abortReport: false,
+
+            // 描述上报类型，默认是空
+            reportDesc: '',
+
+            // 记录 dom 更新的时间
+            domUpdateTimeStamp: 0,
+
+            // 强制上报的时间，用于手动上报并且首屏没有图片的情况
+            forcedReportTimeStamp: 0,
 
             // 一些可配置项，下面是默认值
             options: {
@@ -529,7 +540,7 @@ module.exports = {
     watchUrlChange: function(_global) {
         var _this = this;
 
-        if (_global.recordType === 'auto') {
+        if (/auto/.test(_global.reportDesc)) {
             this._appendScript(function () {
                 var urlChangeStore = _global.urlChangeStore;
 
@@ -564,6 +575,23 @@ module.exports = {
 
                 handler();
             });
+        }
+    },
+
+    watchDomUpdate: function(_global) {
+        if (window.MutationObserver) {
+            _global.mutationObserver = new MutationObserver(function () {
+                _global.domUpdateTimeStamp = new Date().getTime();
+            });
+            _global.mutationObserver.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        }
+    },
+    stopWatchDomUpdate: function(_global) {
+        if (_global.mutationObserver) {
+            _global.mutationObserver.disconnect();
         }
     }
 };

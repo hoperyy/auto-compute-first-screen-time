@@ -107,6 +107,39 @@ the distance between average tested time and real first screen time is less than
 
         force computing first screen time by dotting. (as [Details](https://github.com/hoperyy/auto-compute-first-screen-time#details) below)
 
+    +   `<anytag perf-scroll></anytag>`
+
+        `anytag` means tags like `div / span / ul / ...`.
+
+        Usually, when we get images in first screen, we should firstly get node position by formula as below:
+
+        ```
+        var scrollTop = document.documentElement.scrollTop || document.body.scrollTop; // changeable
+
+        var boundingClientRect = imgNode.getBoundingClientRect();
+        if ((scrollTop + boundingClientRect.top) < window.innerHeight && boundingClientRect.right > 0 && boundingClientRect.left < window.innerWidth) {
+            console.log('this node is in first screen');
+        }
+        ```
+
+        When `perf-scroll` is added on a tag, part of the formula will change as below:
+        
+        ```
+        var scrollTop = document.documentElement.scrollTop || document.body.scrollTop
+        ```
+        
+        to 
+        
+        ```
+        var scrollTop = document.querySelector('[perf-scroll]').getBoundingClientRect().top;
+
+        if (scrollWrapperClientRect.top < 0) {
+            scrollTop = -scrollWrapperClientRect.top;
+        } else {
+            scrollTop = 0;
+        }
+        ```
+
 ## Support xhr ?
 
 Yes!

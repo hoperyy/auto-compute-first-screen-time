@@ -5,29 +5,30 @@ var win = window;
 var doc = win.document;
 var util = require('./util');
 
-function generateApi(recordType) {
-    // 所有变量和函数定义在闭包环境，为了支持同时手动上报和自动上报功能
+function generateApi() {
 
+    // 所有变量和函数定义在闭包环境，为了支持同时手动上报和自动上报功能
     var _global = util.mergeGlobal(util.initGlobal(), {
-        recordType: recordType,
         hasStableFound: false
     });
 
-    function runOnPageStable(reportDesc) {
+    util.watchDomUpdate(_global);
+
+    function runOnPageStable() {
         // 标记稳定时刻已经找到
         if (_global.hasStableFound) {
             return;
         }
+
+        util.stopWatchDomUpdate(_global);
+
         _global.hasStableFound = true;
 
         // 标记停止监听请求
         _global.stopCatchingRequest = true;
 
-        // 标记停止监听 url 变化
-        // _global.stopWatchUrlChange = true;
-
         // 获取当前时刻获取的首屏信息，并根据该信息获取首屏时间
-        _recordFirstScreenInfo(reportDesc);
+        recordFirstScreenInfo();
     }
 
     function _report(resultObj) {
@@ -45,7 +46,7 @@ function generateApi(recordType) {
     }
  
     // 重操作：记录运行该方法时刻的 dom 信息，主要是 images
-    function _recordFirstScreenInfo(reportDesc) {
+    function recordFirstScreenInfo() {
         var startTime =  util.getTime();
         var firstScreenImages = _getImagesInFirstScreen().map(util.formateUrl);
         var endTime = util.getTime();
@@ -55,7 +56,7 @@ function generateApi(recordType) {
         // 最终呈现给用户的首屏信息对象
         var resultObj = {
             type: 'perf',
-            isStaticPage: _global.isFirstRequestSent ? false : (_global.recordType === 'auto' ? true : 'unknown'),
+            isStaticPage: _global.isFirstRequestSent ? false : (/auto/.test(_global.reportDesc) ? true : 'unknown'),
             firstScreenImages: [],
             firstScreenImagesLength: 0,
             firstScreenImagesDetail: firstScreenImagesDetail,
@@ -66,21 +67,27 @@ function generateApi(recordType) {
             firstScreenTimeStamp: -1, // 需要被覆盖的
             version: util.version,
             runtime: util.getTime() - scriptStartTime,
-            reportDesc: reportDesc,
+            reportDesc: _global.reportDesc,
             url: window.location.href.substring(0, 200)
         };
 
         if (!firstScreenImages.length) {
-            util.getDomCompleteTime(function (domCompleteStamp) {
-                resultObj.firstScreenTimeStamp = domCompleteStamp;
-                resultObj.firstScreenTime = domCompleteStamp - util.NAV_START_TIME;
+            if (_global.forcedReportTimeStamp) {
+                resultObj.firstScreenTimeStamp = _global.forcedReportTimeStamp;
+                resultObj.firstScreenTime = _global.forcedReportTimeStamp - util.NAV_START_TIME;
                 _report(resultObj);
-            });
+            } else {
+                util.getLastDomUpdateTime(_global, function (lastDomUpdateStamp) {
+                    resultObj.firstScreenTimeStamp = lastDomUpdateStamp;
+                    resultObj.firstScreenTime = lastDomUpdateStamp - util.NAV_START_TIME;
+                    _report(resultObj);
+                });
+            }
         } else {
             var maxFetchTimes = 10;
             var fetchCount = 0;
 
-            var getDomComplete = function () {
+            var getCompleteTime = function () {
                 var source = performance.getEntries();
                 var matchedLength = 0;
                 var i;
@@ -138,9 +145,9 @@ function generateApi(recordType) {
             };
 
             // 轮询多次获取 performance 信息，直到 performance 信息能够展示首屏资源情况
-            var timer = setInterval(getDomComplete, 1000);
+            var timer = setInterval(getCompleteTime, 1000);
 
-            getDomComplete();
+            getCompleteTime();
         }
     }
 
@@ -226,14 +233,16 @@ function generateApi(recordType) {
         mergeUserOptions: mergeUserOptions,
         testStaticPage: testStaticPage,
         overrideRequest: overrideRequest,
-        runOnPageStable: runOnPageStable,
-        watchUrlChange: watchUrlChange
+        recordFirstScreenInfo: recordFirstScreenInfo,
+        watchUrlChange: watchUrlChange,
+        _global: _global
     };
 }
 
 module.exports = {
     auto: function (userOptions) {
         var api = generateApi('auto');
+        api._global.reportDesc = 'auto-perf';
         api.mergeUserOptions(userOptions);
         api.testStaticPage();
         api.overrideRequest();
@@ -241,7 +250,9 @@ module.exports = {
     },
     hand: function (userOptions) {
         var api = generateApi('hand');
+        api._global.reportDesc = 'hand-perf';
+        api._global.forcedReportTimeStamp = new Date().getTime();
         api.mergeUserOptions(userOptions);
-        api.runOnPageStable('perf-hand');
+        api.recordFirstScreenInfo('perf-hand');
     }
 }
