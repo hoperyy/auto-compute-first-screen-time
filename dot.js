@@ -484,12 +484,23 @@ function generateApi() {
 
 module.exports = {
     auto: function(userConfig) {
-        var api = generateApi();
-        api.global.reportDesc = 'auto-dot';
-        api.mergeUserConfig(userConfig);
-        api.testStaticPage();
-        api.observeDomChange();
-        api.overrideRequest();
+        var go = function () {
+            var api = generateApi();
+            api.global.reportDesc = 'auto-dot';
+            api.mergeUserConfig(userConfig);
+            api.testStaticPage();
+            api.observeDomChange();
+            api.overrideRequest();
+            return api;
+        };
+
+        var api = go();
+
+        if (api.global.watchPerfStartChange) {
+            util.onPerfStartChange(function () {
+                go();
+            });
+        }
     },
     hand: function(userConfig) {
         var api = generateApi();
