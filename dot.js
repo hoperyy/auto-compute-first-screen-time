@@ -170,6 +170,7 @@ function generateApi() {
             firstScreenImages: _global.dotList[0].firstScreenImages, // 首屏图片列表
             firstScreenImagesLength: _global.dotList[0].firstScreenImages.length, // 首屏图片数量
             firstScreenImagesDetail: _getFirstScreenImagesDetail(), // 首屏图片细节
+            navigationStart: _global.forcedNavStartTimeStamp,
             delayFirstScreen: delayFirstScreen, // 计算引发的首屏时间 delay
             delayAll: _global.delayAll, // 计算引发的总 delay
             type: 'dot',

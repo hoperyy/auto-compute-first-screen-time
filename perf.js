@@ -69,6 +69,7 @@ function generateApi() {
             delayFirstScreen: endTime - startTime,
             firstScreenTime: -1, // 需要被覆盖的
             firstScreenTimeStamp: -1, // 需要被覆盖的
+            navigationStart: _global.forcedNavStartTimeStamp,
             version: util.version,
             runtime: util.getTime() - scriptStartTime,
             reportDesc: _global.reportDesc,
@@ -260,6 +261,7 @@ module.exports = {
 
         if (api.global.watchPerfStartChange) {
             util.onPerfStartChange(function (prePerfStartTimeStamp, curPerfStartTimeStamp) {
+                console.log('~~~ onPerfStartChange', curPerfStartTimeStamp);
                 go(curPerfStartTimeStamp);
             });
         }
