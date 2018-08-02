@@ -559,12 +559,12 @@ module.exports = {
             return window.parseFloat(document.body.getAttribute('perf-start'));
         };
         var handler = function() {
-            curPerfStartTimeStamp = getPerfStart() || '';
+            curPerfStartTimeStamp = getPerfStart() || this.NAV_START_TIME;
         
             var perfChanged = prePerfStartTimeStamp && prePerfStartTimeStamp != curPerfStartTimeStamp;
 
             if (perfChanged) {
-                callback(prePerfStartTimeStamp, curPerfStartTimeStamp || this.NAV_START_TIME);
+                callback(prePerfStartTimeStamp, curPerfStartTimeStamp);
             }
 
             prePerfStartTimeStamp = curPerfStartTimeStamp;

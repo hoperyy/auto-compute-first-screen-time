@@ -71,7 +71,7 @@ function generateApi() {
             // 如果最终状态没有图片，则取出当前打点的对象，首屏时间设置为 performance 值
             targetInfo = _global.dotList[0];
             targetInfo.firstScreenTimeStamp = performance.timing.domComplete; // 有 bug，过早获取时该值可能为 0
-            targetInfo.firstScreenTime = performance.timing.domComplete - util.NAV_START_TIME;
+            targetInfo.firstScreenTime = performance.timing.domComplete - _global.forcedNavStartTimeStamp;
         }
 
         return targetInfo;
@@ -165,7 +165,7 @@ function generateApi() {
             dotList: _global.dotList, // 打点列表
             isStaticPage: _global.isFirstRequestSent ? false : (/auto/.test(_global.reportDesc) ? true : 'unknown'), // 是否是静态页面（没有请求发出）
             requests: util.transRequestDetails2Arr(_global), // 监控期间拦截的请求
-            firstScreenTime: targetObj.firstScreenTimeStamp - util.NAV_START_TIME, // 首屏时长
+            firstScreenTime: targetObj.firstScreenTimeStamp - _global.forcedNavStartTimeStamp, // 首屏时长
             firstScreenTimeStamp: targetObj.firstScreenTimeStamp, // 首屏结束的时刻
             firstScreenImages: _global.dotList[0].firstScreenImages, // 首屏图片列表
             firstScreenImagesLength: _global.dotList[0].firstScreenImages.length, // 首屏图片数量
@@ -239,7 +239,7 @@ function generateApi() {
             firstScreenImagesLength: firstScreenImages.length, // 有几张首屏图片
             dotIndex: _global.dotList.length, // 打点索引
             dotTimeStamp: recordStartTime, // 打点时刻
-            dotTimeDuration: recordStartTime - util.NAV_START_TIME,
+            dotTimeDuration: recordStartTime - _global.forcedNavStartTimeStamp,
             firstScreenTimeStamp: -1, // 当前时刻下，所有图片加载完毕的时刻
             delay: recordEndTime - recordStartTime, // 此次打点持续了多久
         };
@@ -263,7 +263,7 @@ function generateApi() {
                 var time = util.getTime();
                 return {
                     loadTimeStamp: time,
-                    loadDuration: time - util.NAV_START_TIME,
+                    loadDuration: time - _global.forcedNavStartTimeStamp,
                     maxErrorTime: options.maxErrorTime,
                     type: options.type
                 }
@@ -484,9 +484,14 @@ function generateApi() {
 
 module.exports = {
     auto: function(userConfig) {
-        var go = function () {
+        var go = function (curPerfStartTimeStamp) {
             var api = generateApi();
             api.global.reportDesc = 'auto-dot';
+
+            if (curPerfStartTimeStamp) {
+                api.global.forcedNavStartTimeStamp = curPerfStartTimeStamp;
+            }
+
             api.mergeUserConfig(userConfig);
             api.testStaticPage();
             api.observeDomChange();
@@ -497,8 +502,8 @@ module.exports = {
         var api = go();
 
         if (api.global.watchPerfStartChange) {
-            util.onPerfStartChange(function () {
-                go();
+            util.onPerfStartChange(function (prePerfStartTimeStamp, curPerfStartTimeStamp) {
+                go(curPerfStartTimeStamp);
             });
         }
     },

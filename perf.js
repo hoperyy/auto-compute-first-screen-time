@@ -78,12 +78,12 @@ function generateApi() {
         if (!firstScreenImages.length) {
             if (_global.forcedReportTimeStamp) {
                 resultObj.firstScreenTimeStamp = _global.forcedReportTimeStamp;
-                resultObj.firstScreenTime = _global.forcedReportTimeStamp - util.NAV_START_TIME;
+                resultObj.firstScreenTime = _global.forcedReportTimeStamp - _global.forcedNavStartTimeStamp;
                 _report(resultObj);
             } else {
                 util.getLastDomUpdateTime(_global, function (lastDomUpdateStamp) {
                     resultObj.firstScreenTimeStamp = lastDomUpdateStamp;
-                    resultObj.firstScreenTime = lastDomUpdateStamp - util.NAV_START_TIME;
+                    resultObj.firstScreenTime = lastDomUpdateStamp - _global.forcedNavStartTimeStamp;
                     _report(resultObj);
                 });
             }
@@ -242,9 +242,14 @@ function generateApi() {
 
 module.exports = {
     auto: function (userConfig) {
-        var go = function() {
+        var go = function (curPerfStartTimeStamp) {
             var api = generateApi('auto');
             api.global.reportDesc = 'auto-perf';
+
+            if (curPerfStartTimeStamp) {
+                api.global.forcedNavStartTimeStamp = curPerfStartTimeStamp;
+            }
+
             api.mergeUserConfig(userConfig);
             api.testStaticPage();
             api.overrideRequest();
@@ -254,8 +259,8 @@ module.exports = {
         var api = go();
 
         if (api.global.watchPerfStartChange) {
-            util.onPerfStartChange(function () {
-                go();
+            util.onPerfStartChange(function (prePerfStartTimeStamp, curPerfStartTimeStamp) {
+                go(curPerfStartTimeStamp);
             });
         }
     },
