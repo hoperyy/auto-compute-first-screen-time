@@ -35,26 +35,37 @@ function generateApi() {
     }
 
     function _report(resultObj) {
-        // 如果退出上报，则直接返回
-        if (_global.abortReport) {
-            return;
+        var handler = function() {
+            // 如果退出上报，则直接返回
+            if (_global.abortReport) {
+                return;
+            }
+
+            // 如果从计算开始到上报的过程中，perfStart 有变化，则不再统计性能
+            if (_global._perfStartChanged) {
+                return;
+            }
+
+            _global.abortReport = true;
+
+            // 为 resultObj 添加 _global.ignoredImages 字段
+            resultObj.ignoredImages = _global.ignoredImages;
+            resultObj.device = _global.device;
+            resultObj.success = true;
+
+            _global.onReport(resultObj);
+
+            // clear todo
+        };
+
+        if (_global.delayReport) {
+            var timer = setTimeout(function() {
+                handler();
+                clearTimeout(timer);
+            }, _global.delayReport);
+        } else {
+            handler();
         }
-
-        // 如果中途 perfStart 有变化，则不再统计性能
-        if (_global._perfStartChanged) {
-            return;
-        }
-
-        _global.abortReport = true;
-
-        // 为 resultObj 添加 _global.ignoredImages 字段
-        resultObj.ignoredImages = _global.ignoredImages;
-        resultObj.device = _global.device;
-        resultObj.success = true;
-
-        _global.onReport(resultObj);
-
-        // clear todo
     }
  
     // 重操作：记录运行该方法时刻的 dom 信息，主要是 images
@@ -266,11 +277,20 @@ module.exports = {
         var api = go();
 
         // 单页应用才会出现重新设置 perf-start 的情况
+        var preGlobal = api.global;
         util.onNavigationStartChange(api.global, function (prePerfStartTimeStamp, curPerfStartTimeStamp) {
+            preGlobal._perfStartChanged = true;
+
+            // 触发用户注册的回调
+            preGlobal.onNavigationStartChange(prePerfStartTimeStamp, curPerfStartTimeStamp);
+
             // 重新运行首屏时间计算，但需要使用 dot 的方式
             userConfig.forcedNavStartTimeStamp = curPerfStartTimeStamp;
-            require('./dot').auto(userConfig);
+
+            preGlobal = require('./dot').auto(userConfig);
         });
+
+        return api.global;
     },
     hand: function (userConfig) {
         var api = generateApi('hand');

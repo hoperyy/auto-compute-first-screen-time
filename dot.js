@@ -98,99 +98,110 @@ function generateApi() {
 
     // 只会执行一次
     function _report(targetObj) {
-        // 检查是否取消上报
-        if (_global.abortReport) {
-            return;
-        }
+        var handler = function() {
+            // 检查是否取消上报
+            if (_global.abortReport) {
+                return;
+            }
 
-        // 如果中途 perfStart 有变化，则不再统计性能
-        if (_global._perfStartChanged) {
-            return;
-        }
+            // 如果从计算开始到上报的过程中，perfStart 有变化，则不再统计性能
+            if (_global._perfStartChanged) {
+                return;
+            }
 
-        if (_global.abortByDelayTimeout) {
-            // 上报
-            _global.onReport({
-                success: false,
-                delayFirstScreen: _global.delayAll,
-                abortTimeSetting: _global.abortTimeWhenDelay,
-                url: window.location.href.substring(0, 200),
-                dotList: _global.dotList,
-                type: 'dot'
-            });
+            if (_global.abortByDelayTimeout) {
+                // 上报
+                _global.onReport({
+                    success: false,
+                    delayFirstScreen: _global.delayAll,
+                    abortTimeSetting: _global.abortTimeWhenDelay,
+                    url: window.location.href.substring(0, 200),
+                    dotList: _global.dotList,
+                    type: 'dot'
+                });
+
+                _global.abortReport = true;
+                return;
+            }
 
             _global.abortReport = true;
-            return;
-        }
 
-        _global.abortReport = true;
+            // 为 _global.imgMap 添加是否是首屏标志
+            var targetFirstScreenImages = null;
+            var firstScreenImages = [];
+            var i;
+            var len;
+            var requests = [];
 
-        // 为 _global.imgMap 添加是否是首屏标志
-        var targetFirstScreenImages = null;
-        var firstScreenImages = [];
-        var i;
-        var len;
-        var requests = [];
-
-        for (i = 0, len = _global.dotList.length; i < len; i++) {
-            if (_global.dotList[i].isTargetDot) {
-                targetFirstScreenImages = _global.dotList[i].firstScreenImages;
-                break;
-            }
-        }
-
-        if (targetFirstScreenImages) {
-            for (i = 0, len = targetFirstScreenImages.length; i < len; i++) {
-                firstScreenImages.push(targetFirstScreenImages[i].replace(/^http(s)?:/, '').replace(/^\/\//, ''));
-            }
-        }
-
-        // 计算性能监控计算的耗时
-        var delayFirstScreen = 0;
-        for (i = 0, len = _global.dotList.length; i < len; i++) {
-            if (_global.dotList[i].delay) {
-                if (_global.dotList[i].dotTimeStamp <= targetObj.dotTimeStamp) {
-                    delayFirstScreen += _global.dotList[i].delay;
+            for (i = 0, len = _global.dotList.length; i < len; i++) {
+                if (_global.dotList[i].isTargetDot) {
+                    targetFirstScreenImages = _global.dotList[i].firstScreenImages;
+                    break;
                 }
             }
-        }
 
-        // 规范化 requests
-        for (var requestKey in _global.requestDetails) {
-            var parsedRequestKey = requestKey
-                .split('>time')[0]
-                .replace(/^http(s)?:/, '')
-                .replace(/^\/\//, '');
-            requests.push(parsedRequestKey);
-        }
+            if (targetFirstScreenImages) {
+                for (i = 0, len = targetFirstScreenImages.length; i < len; i++) {
+                    firstScreenImages.push(targetFirstScreenImages[i].replace(/^http(s)?:/, '').replace(/^\/\//, ''));
+                }
+            }
 
-        // 最终呈现给用户的首屏信息对象
-        var resultObj = {
-            maxErrorTime: targetObj.maxErrorTime, // 最大误差值
-            dotList: _global.dotList, // 打点列表
-            isStaticPage: _global.isFirstRequestSent ? false : (/auto/.test(_global.reportDesc) ? true : 'unknown'), // 是否是静态页面（没有请求发出）
-            requests: util.transRequestDetails2Arr(_global), // 监控期间拦截的请求
-            firstScreenTime: targetObj.firstScreenTimeStamp - _global.forcedNavStartTimeStamp, // 首屏时长
-            firstScreenTimeStamp: targetObj.firstScreenTimeStamp, // 首屏结束的时刻
-            firstScreenImages: _global.dotList[0].firstScreenImages, // 首屏图片列表
-            firstScreenImagesLength: _global.dotList[0].firstScreenImages.length, // 首屏图片数量
-            firstScreenImagesDetail: _getFirstScreenImagesDetail(), // 首屏图片细节
-            navigationStart: _global.forcedNavStartTimeStamp,
-            isOriginalNavStart: _global.forcedNavStartTimeStamp === performance.timing.navigationStart,
-            delayFirstScreen: delayFirstScreen, // 计算引发的首屏时间 delay
-            delayAll: _global.delayAll, // 计算引发的总 delay
-            type: 'dot',
-            version: util.version,
-            runtime: util.getTime() - scriptStartTime, // 检测脚本运行的时长
-            reportDesc: _global.reportDesc,
-            url: window.location.href.substring(0, 200), // 当前页面 url
-            ignoredImages: _global.ignoredImages, // 计算首屏时被忽略的图片
-            device: _global.device, // 当前设备信息
-            success: true
+            // 计算性能监控计算的耗时
+            var delayFirstScreen = 0;
+            for (i = 0, len = _global.dotList.length; i < len; i++) {
+                if (_global.dotList[i].delay) {
+                    if (_global.dotList[i].dotTimeStamp <= targetObj.dotTimeStamp) {
+                        delayFirstScreen += _global.dotList[i].delay;
+                    }
+                }
+            }
+
+            // 规范化 requests
+            for (var requestKey in _global.requestDetails) {
+                var parsedRequestKey = requestKey
+                    .split('>time')[0]
+                    .replace(/^http(s)?:/, '')
+                    .replace(/^\/\//, '');
+                requests.push(parsedRequestKey);
+            }
+
+            // 最终呈现给用户的首屏信息对象
+            var resultObj = {
+                maxErrorTime: targetObj.maxErrorTime, // 最大误差值
+                dotList: _global.dotList, // 打点列表
+                isStaticPage: _global.isFirstRequestSent ? false : (/auto/.test(_global.reportDesc) ? true : 'unknown'), // 是否是静态页面（没有请求发出）
+                requests: util.transRequestDetails2Arr(_global), // 监控期间拦截的请求
+                firstScreenTime: targetObj.firstScreenTimeStamp - _global.forcedNavStartTimeStamp, // 首屏时长
+                firstScreenTimeStamp: targetObj.firstScreenTimeStamp, // 首屏结束的时刻
+                firstScreenImages: _global.dotList[0].firstScreenImages, // 首屏图片列表
+                firstScreenImagesLength: _global.dotList[0].firstScreenImages.length, // 首屏图片数量
+                firstScreenImagesDetail: _getFirstScreenImagesDetail(), // 首屏图片细节
+                navigationStart: _global.forcedNavStartTimeStamp,
+                isOriginalNavStart: _global.forcedNavStartTimeStamp === performance.timing.navigationStart,
+                delayFirstScreen: delayFirstScreen, // 计算引发的首屏时间 delay
+                delayAll: _global.delayAll, // 计算引发的总 delay
+                type: 'dot',
+                version: util.version,
+                runtime: util.getTime() - scriptStartTime, // 检测脚本运行的时长
+                reportDesc: _global.reportDesc,
+                url: window.location.href.substring(0, 200), // 当前页面 url
+                ignoredImages: _global.ignoredImages, // 计算首屏时被忽略的图片
+                device: _global.device, // 当前设备信息
+                success: true
+            };
+
+            // 输出结果
+            _global.onReport(resultObj);
         };
-
-        // 输出结果
-        _global.onReport(resultObj);
+        
+        if (_global.delayReport) {
+            var timer = setTimeout(function () {
+                handler();
+                clearTimeout(timer);
+            }, _global.delayReport);
+        } else {
+            handler();
+        }
     }
 
     function _getFirstScreenImagesDetail() {
@@ -505,10 +516,21 @@ module.exports = {
 
         var api = go();
 
+        var preGlobal = api.global;
+        console.log('dot', util, util.onNavigationStartChange);
         util.onNavigationStartChange(api.global, function (prePerfStartTimeStamp, curPerfStartTimeStamp) {
+            preGlobal._perfStartChanged = true;
+
+            // 触发用户注册的回调
+            preGlobal.onNavigationStartChange(prePerfStartTimeStamp, curPerfStartTimeStamp);
+
+            // 重新运行首屏时间计算，但需要使用 dot 的方式
             userConfig.forcedNavStartTimeStamp = curPerfStartTimeStamp;
-            go(curPerfStartTimeStamp);
+
+            preGlobal = go().global;
         });
+
+        return api.global;
     },
     hand: function(userConfig) {
         var api = generateApi();

@@ -1,7 +1,7 @@
 var MutationObserver = window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
 
 module.exports = {
-    version: '5.0.3',
+    version: '5.0.4',
 
     NAV_START_TIME: window.performance.timing.navigationStart,
 
@@ -256,8 +256,6 @@ module.exports = {
 
             onStableStatusFound: function () { },
 
-            onNavigationStartChange: function () { },
-
             onNavigationStartChange: function() {},
 
             request: {
@@ -275,6 +273,9 @@ module.exports = {
 
             // 监听 body 标签上的 perf-start 变化，如果设置为 true，那么，每次 perf-start 变化均触发首屏时间的自动计算。主要用于单页应用计算首屏
             watchPerfStartChange: false,
+
+            // 延时执行上报
+            delayReport: 0
         }
     },
 
@@ -477,7 +478,7 @@ module.exports = {
     mergeUserConfig: function (_global, userConfig) {
         if (userConfig) {
             for (var userConfigKey in userConfig) {
-                if (['watingTimeWhenDefineStaticPage', 'onReport', 'onStableStatusFound', 'renderTimeAfterGettingData', 'onAllXhrResolved', 'onNavigationStartChange', 'onNavigationStartChange', 'watchPerfStartChange', 'forcedNavStartTimeStamp'].indexOf(userConfigKey) !== -1) {
+                if (['watingTimeWhenDefineStaticPage', 'onReport', 'onStableStatusFound', 'renderTimeAfterGettingData', 'onAllXhrResolved', 'onNavigationStartChange', 'watchPerfStartChange', 'forcedNavStartTimeStamp', 'delayReport'].indexOf(userConfigKey) !== -1) {
                     _global[userConfigKey] = userConfig[userConfigKey];
                 }
             }
@@ -577,8 +578,8 @@ module.exports = {
     },
 
     onNavigationStartChange: function (_global, callback) {
-        if (_global.watchPerfStartChange && !window.autoComputeFirstScreenTimeWatchPerfStartChange) {
-            window.autoComputeFirstScreenTimeWatchPerfStartChange = true; // 一个页面，只允许一个观察者
+        if (_global.watchPerfStartChange && !window.autoComputeFirstScreenTime_watchPerfStartChange) {
+            window.autoComputeFirstScreenTime_watchPerfStartChange = true; // 一个页面，只允许一个观察者
 
             var prePerfStartTimeStamp;
             var curPerfStartTimeStamp;
@@ -590,18 +591,8 @@ module.exports = {
             var check = function () {
                 curPerfStartTimeStamp = that.getPerfStart();
 
-                // 当前值存在才可以
-                if (curPerfStartTimeStamp) {
-                    if (!prePerfStartTimeStamp) {
-                        hasFirstChangeHappened = true;
-                    } else {
-                        if (curPerfStartTimeStamp !== prePerfStartTimeStamp) {
-                            _global._perfStartChanged = true;
-                            // 触发用户注册的回调
-                            _global.onNavigationStartChange(prePerfStartTimeStamp, curPerfStartTimeStamp);
-                            callback(prePerfStartTimeStamp, curPerfStartTimeStamp);
-                        }
-                    }
+                if (prePerfStartTimeStamp && curPerfStartTimeStamp && prePerfStartTimeStamp != curPerfStartTimeStamp) {
+                    callback(prePerfStartTimeStamp, curPerfStartTimeStamp);
                 }
 
                 prePerfStartTimeStamp = curPerfStartTimeStamp;
