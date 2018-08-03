@@ -517,7 +517,6 @@ module.exports = {
         var api = go();
 
         var preGlobal = api.global;
-        console.log('dot', util, util.onNavigationStartChange);
         util.onNavigationStartChange(api.global, function (prePerfStartTimeStamp, curPerfStartTimeStamp) {
             preGlobal._perfStartChanged = true;
 

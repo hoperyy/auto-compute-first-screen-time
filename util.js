@@ -1,7 +1,7 @@
 var MutationObserver = window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
 
 module.exports = {
-    version: '5.0.4',
+    version: '5.0.5',
 
     NAV_START_TIME: window.performance.timing.navigationStart,
 
