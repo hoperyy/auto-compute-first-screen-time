@@ -103,6 +103,11 @@ function generateApi() {
             return;
         }
 
+        // 如果中途 perfStart 有变化，则不再统计性能
+        if (_global._perfStartChanged) {
+            return;
+        }
+
         if (_global.abortByDelayTimeout) {
             // 上报
             _global.onReport({
@@ -171,6 +176,7 @@ function generateApi() {
             firstScreenImagesLength: _global.dotList[0].firstScreenImages.length, // 首屏图片数量
             firstScreenImagesDetail: _getFirstScreenImagesDetail(), // 首屏图片细节
             navigationStart: _global.forcedNavStartTimeStamp,
+            isOriginalNavStart: _global.forcedNavStartTimeStamp === performance.timing.navigationStart,
             delayFirstScreen: delayFirstScreen, // 计算引发的首屏时间 delay
             delayAll: _global.delayAll, // 计算引发的总 delay
             type: 'dot',
@@ -405,6 +411,8 @@ function generateApi() {
             if (targetDotObj.finished) {
                 reportTargetObj(targetDotObj);
                 clearInterval(checkTimer);
+
+                // clear todo
             }
         };
         checkTimer = setInterval(check, 1000);
@@ -485,14 +493,9 @@ function generateApi() {
 
 module.exports = {
     auto: function(userConfig) {
-        var go = function (curPerfStartTimeStamp) {
+        var go = function () {
             var api = generateApi();
             api.global.reportDesc = 'auto-dot';
-
-            if (curPerfStartTimeStamp) {
-                api.global.forcedNavStartTimeStamp = curPerfStartTimeStamp;
-            }
-
             api.mergeUserConfig(userConfig);
             api.testStaticPage();
             api.observeDomChange();
@@ -502,12 +505,10 @@ module.exports = {
 
         var api = go();
 
-        if (api.global.watchPerfStartChange) {
-            util.onNavigationStartChange(api.global.resetNavigationStartTag, function (prePerfStartTimeStamp, curPerfStartTimeStamp) {
-                api.global.onNavigationStartChange(prePerfStartTimeStamp, curPerfStartTimeStamp);
-                go(curPerfStartTimeStamp);
-            });
-        }
+        util.onNavigationStartChange(api.global, function (prePerfStartTimeStamp, curPerfStartTimeStamp) {
+            userConfig.forcedNavStartTimeStamp = curPerfStartTimeStamp;
+            go(curPerfStartTimeStamp);
+        });
     },
     hand: function(userConfig) {
         var api = generateApi();

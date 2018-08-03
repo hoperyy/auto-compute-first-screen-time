@@ -30,12 +30,18 @@ function generateApi() {
         // 获取当前时刻获取的首屏信息，并根据该信息获取首屏时间
         var stableObject = recordFirstScreenInfo();
 
+        // 触发用户注册的回调
         _global.onStableStatusFound(stableObject);
     }
 
     function _report(resultObj) {
         // 如果退出上报，则直接返回
         if (_global.abortReport) {
+            return;
+        }
+
+        // 如果中途 perfStart 有变化，则不再统计性能
+        if (_global._perfStartChanged) {
             return;
         }
 
@@ -47,6 +53,8 @@ function generateApi() {
         resultObj.success = true;
 
         _global.onReport(resultObj);
+
+        // clear todo
     }
  
     // 重操作：记录运行该方法时刻的 dom 信息，主要是 images
@@ -70,6 +78,7 @@ function generateApi() {
             firstScreenTime: -1, // 需要被覆盖的
             firstScreenTimeStamp: -1, // 需要被覆盖的
             navigationStart: _global.forcedNavStartTimeStamp,
+            isOriginalNavStart: _global.forcedNavStartTimeStamp === performance.timing.navigationStart,
             version: util.version,
             runtime: util.getTime() - scriptStartTime,
             reportDesc: _global.reportDesc,
@@ -245,14 +254,9 @@ function generateApi() {
 
 module.exports = {
     auto: function (userConfig) {
-        var go = function (curPerfStartTimeStamp) {
+        var go = function () {
             var api = generateApi('auto');
             api.global.reportDesc = 'auto-perf';
-
-            if (curPerfStartTimeStamp) {
-                api.global.forcedNavStartTimeStamp = curPerfStartTimeStamp;
-            }
-
             api.mergeUserConfig(userConfig);
             api.testStaticPage();
             api.overrideRequest();
@@ -261,12 +265,12 @@ module.exports = {
 
         var api = go();
 
-        if (api.global.watchPerfStartChange) {
-            util.onNavigationStartChange(api.global.resetNavigationStartTag, function (prePerfStartTimeStamp, curPerfStartTimeStamp) {
-                api.global.onNavigationStartChange(prePerfStartTimeStamp, curPerfStartTimeStamp);
-                go(curPerfStartTimeStamp);
-            });
-        }
+        // 单页应用才会出现重新设置 perf-start 的情况
+        util.onNavigationStartChange(api.global, function (prePerfStartTimeStamp, curPerfStartTimeStamp) {
+            // 重新运行首屏时间计算，但需要使用 dot 的方式
+            userConfig.forcedNavStartTimeStamp = curPerfStartTimeStamp;
+            require('./dot').auto(userConfig);
+        });
     },
     hand: function (userConfig) {
         var api = generateApi('hand');

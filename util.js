@@ -1,28 +1,36 @@
 var MutationObserver = window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
 
 module.exports = {
-    version: '5.0.2',
+    version: '5.0.3',
 
     NAV_START_TIME: window.performance.timing.navigationStart,
 
-    getLastDomUpdateTime: function(_global, callback) {
+    getLastDomUpdateTime: function (_global, callback) {
+        // 说明 dom 发生过变化
         if (_global.domUpdateTimeStamp) {
             callback(_global.domUpdateTimeStamp);
         } else {
-            var count = 0;
-            var handler = function () {
-                if (performance.timing.domContentLoadedEventStart != 0) {
-                    callback(performance.timing.domContentLoadedEventStart);
-                }
+            // dom 没有发生过变化，这时要区别对待
+            // 如果不是单页应用内部子页面跳转过，则直接取 domContentLoadedEventStart 时刻
+            if (_global._isUsingOriginalNavStart) {
+                var count = 0;
+                var handler = function () {
+                    if (performance.timing.domContentLoadedEventStart != 0) {
+                        callback(performance.timing.domContentLoadedEventStart);
+                    }
 
-                if (++count >= 10 || performance.timing.domContentLoadedEventStart != 0) {
-                    clearInterval(timer);
-                }
-            };
-            // 轮询获取 domComplete 的值，最多轮询 10 次
-            var timer = setInterval(handler, 500);
+                    if (++count >= 10 || performance.timing.domContentLoadedEventStart != 0) {
+                        clearInterval(timer);
+                    }
+                };
+                // 轮询获取 domComplete 的值，最多轮询 10 次
+                var timer = setInterval(handler, 500);
 
-            handler();
+                handler();   
+            } else {
+                // 如果单页应用内部子页面跳转过，则直接取跳转的时刻
+                callback(_global.forcedNavStartTimeStamp);
+            }
         }
     },
 
@@ -49,7 +57,7 @@ module.exports = {
         return src;
     },
 
-    _filteImg: function(src, imgFilter) {
+    _filteImg: function (src, imgFilter) {
         for (var i = 0, len = imgFilter.length; i < len; i++) {
             if (imgFilter[i].test(src)) {
                 return true;
@@ -67,7 +75,7 @@ module.exports = {
         right: 0
     },
 
-    recordCurrentPos: function(currentNode, _global) {
+    recordCurrentPos: function (currentNode, _global) {
         var boundingClientRect = currentNode.getBoundingClientRect();
 
         var scrollWrapper = document.querySelector(_global.scrollWrapper);
@@ -119,7 +127,7 @@ module.exports = {
 
         return false;
     },
-    queryAllNode: function(ignoreTag) {
+    queryAllNode: function (ignoreTag) {
         var _this = this;
 
         var result = document.createNodeIterator(
@@ -135,9 +143,9 @@ module.exports = {
 
         return result;
     },
-    _shouldIgnoreNode: function(child, ignoreTag) {
+    _shouldIgnoreNode: function (child, ignoreTag) {
         var ignoredNodes = document.querySelectorAll(ignoreTag);
-        
+
         for (var i = 0, len = ignoredNodes.length; i < len; i++) {
             if (this._isChild(child, ignoredNodes[i])) {
                 return true;
@@ -147,10 +155,10 @@ module.exports = {
         return false;
     },
 
-    _isChild: function(child, parent) {
+    _isChild: function (child, parent) {
         var isChild = false;
 
-        while(child) {
+        while (child) {
             if (child === parent) {
                 isChild = true;
                 break;
@@ -191,11 +199,11 @@ module.exports = {
         return requests;
     },
 
-    formateUrl: function(url) {
+    formateUrl: function (url) {
         return url.replace(/^http(s)?\:/, '').replace(/^\/\//, '');
     },
 
-    initGlobal: function() {
+    initGlobal: function () {
         return {
             // 是否已经上报的标志
             stopCatchingRequest: false,
@@ -238,9 +246,17 @@ module.exports = {
             // 计算首屏时间耗时的开始时刻，默认是 navigationStart，对于单页应用，该值有可能修改
             forcedNavStartTimeStamp: window.performance.timing.navigationStart,
 
-            onReport: function() {},
+            _originalNavStart: window.performance.timing.navigationStart,
 
-            onStableStatusFound: function() {},
+            _isUsingOriginalNavStart: true,
+
+            _perfStartChanged: false,
+
+            onReport: function () { },
+
+            onStableStatusFound: function () { },
+
+            onNavigationStartChange: function () { },
 
             onNavigationStartChange: function() {},
 
@@ -257,18 +273,16 @@ module.exports = {
 
             img: [/(\.)(png|jpg|jpeg|gif|webp)/i], // 匹配图片的正则表达式
 
-            // 监听 body 标签上的 resetNavigationStartTag 变化，如果设置为 true，那么，每次 resetNavigationStartTag 变化均触发首屏时间的自动计算。主要用于单页应用计算首屏
+            // 监听 body 标签上的 perf-start 变化，如果设置为 true，那么，每次 perf-start 变化均触发首屏时间的自动计算。主要用于单页应用计算首屏
             watchPerfStartChange: false,
-
-            resetNavigationStartTag: ['perf-start']
         }
     },
 
-    getTime: function() {
+    getTime: function () {
         return new Date().getTime();
     },
 
-    mergeGlobal: function(defaultGlobal, privateGlobal) {
+    mergeGlobal: function (defaultGlobal, privateGlobal) {
         var key;
         for (key in privateGlobal) {
             defaultGlobal[key] = privateGlobal[key];
@@ -317,7 +331,7 @@ module.exports = {
         }
     },
 
-    overrideRequest: function(_global, onStable) {
+    overrideRequest: function (_global, onStable) {
         var _this = this;
         var requestTimerStatusPool = {};
 
@@ -460,10 +474,10 @@ module.exports = {
         overideXhr(onRequestSend, afterRequestReturn);
     },
 
-    mergeUserConfig: function(_global, userConfig) {
+    mergeUserConfig: function (_global, userConfig) {
         if (userConfig) {
             for (var userConfigKey in userConfig) {
-                if (['watingTimeWhenDefineStaticPage', 'onReport', 'onStableStatusFound', 'renderTimeAfterGettingData', 'onAllXhrResolved', 'onNavigationStartChange', 'watchPerfStartChange'].indexOf(userConfigKey) !== -1) {
+                if (['watingTimeWhenDefineStaticPage', 'onReport', 'onStableStatusFound', 'renderTimeAfterGettingData', 'onAllXhrResolved', 'onNavigationStartChange', 'onNavigationStartChange', 'watchPerfStartChange', 'forcedNavStartTimeStamp'].indexOf(userConfigKey) !== -1) {
                     _global[userConfigKey] = userConfig[userConfigKey];
                 }
             }
@@ -485,14 +499,13 @@ module.exports = {
                     console.error('[auto-compute-first-screen-time] param "img" should be type RegExp');
                 }
             }
-
-            if (userConfig.resetNavigationStartTag) {
-                _global.resetNavigationStartTag = _global.resetNavigationStartTag.concat(userConfig.resetNavigationStartTag);
-            }
         }
+
+        // 不用全等，避免字符串和数字之间不相等的情况
+        _global._isUsingOriginalNavStart = _global.forcedNavStartTimeStamp == _global._originalNavStart;
     },
 
-    _appendScript: function(callback) {
+    _appendScript: function (callback) {
         var insertedScript = null;
         var functionName = 'AUTO_COMPUTE_FIRST_SCREEN_TIME_' + this.getTime() + '_' + parseInt(Math.random() * 100);
 
@@ -521,8 +534,8 @@ module.exports = {
         }
     },
 
-    testStaticPage: function(onStable, _global) {
-        var handler = function() {
+    testStaticPage: function (onStable, _global) {
+        var handler = function () {
             window.autoComputeFirstScreenTimeOnloadFinishedTag = true;
 
             // 如果脚本运行完毕，延时一段时间后，再判断页面是否发出异步请求，如果页面还没有发出异步请求，则认为该时刻为稳定时刻，尝试上报
@@ -542,7 +555,7 @@ module.exports = {
         }
     },
 
-    watchDomUpdate: function(_global) {
+    watchDomUpdate: function (_global) {
         if (MutationObserver) {
             _global.mutationObserver = new MutationObserver(function () {
                 _global.domUpdateTimeStamp = new Date().getTime();
@@ -553,58 +566,59 @@ module.exports = {
             });
         }
     },
-    stopWatchDomUpdate: function(_global) {
+    stopWatchDomUpdate: function (_global) {
         if (_global.mutationObserver) {
             _global.mutationObserver.disconnect();
         }
     },
 
-    onNavigationStartChange: function(tags, callback) {
-        var preTime = this.NAV_START_TIME;
-        var curTime;
+    getPerfStart: function() {
+        return window.parseFloat(document.body.getAttribute('perf-start'));
+    },
 
-        var preValue;
-        var curValue;
+    onNavigationStartChange: function (_global, callback) {
+        if (_global.watchPerfStartChange && !window.autoComputeFirstScreenTimeWatchPerfStartChange) {
+            window.autoComputeFirstScreenTimeWatchPerfStartChange = true; // 一个页面，只允许一个观察者
 
-        var getNavigationStartTagValue = function () {
-            var rt;
-            for (var i = 0, len = tags.length; i < len; i++) {
-                rt = document.body.getAttribute(tags[i]);
+            var prePerfStartTimeStamp;
+            var curPerfStartTimeStamp;
 
-                if (rt) {
-                    break;
-                }
-            }
+            var that = this;
 
-            return rt;
-        };
-        var checkNavStartTimeChange = function() {
-            var curValue = getNavigationStartTagValue();
-        
-            // 从无到有、从有到无、都有且一致：不被认为标志变化
-            // 都有，且不一致，被认为标志变化
-            var navStartChanged = preValue && curValue && preValue != curValue;
+            var hasFirstChangeHappened = false;
 
-            if (navStartChanged) {
-                curTime = new Date().now();
-                callback(preTime, curTime);
-                preTime = curTime;
-            }
+            var check = function () {
+                curPerfStartTimeStamp = that.getPerfStart();
 
-            preValue = curValue;
-        };
-
-        if (MutationObserver) {
-            var observer = new MutationObserver(function (mutations, observer) {
-                mutations.forEach(function (mutation) {
-                    if (tags.indexOf(mutation.attributeName) !== -1) {
-                        checkNavStartTimeChange();
+                // 当前值存在才可以
+                if (curPerfStartTimeStamp) {
+                    if (!prePerfStartTimeStamp) {
+                        hasFirstChangeHappened = true;
+                    } else {
+                        if (curPerfStartTimeStamp !== prePerfStartTimeStamp) {
+                            _global._perfStartChanged = true;
+                            // 触发用户注册的回调
+                            _global.onNavigationStartChange(prePerfStartTimeStamp, curPerfStartTimeStamp);
+                            callback(prePerfStartTimeStamp, curPerfStartTimeStamp);
+                        }
                     }
+                }
+
+                prePerfStartTimeStamp = curPerfStartTimeStamp;
+            };
+
+            if (MutationObserver) {
+                var observer = new MutationObserver(function (mutations, observer) {
+                    mutations.forEach(function (mutation) {
+                        if (mutation.attributeName === 'perf-start') {
+                            check();
+                        }
+                    });
                 });
-            });
-            observer.observe(document.body, { attributes: true });
-        } else {
-            setInterval(checkNavStartTimeChange, 250);
+                observer.observe(document.body, { attributes: true });
+            } else {
+                setInterval(check, 250);
+            }
         }
     }
 };
