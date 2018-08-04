@@ -3,8 +3,6 @@ var MutationObserver = window.MutationObserver || window.WebKitMutationObserver 
 module.exports = {
     version: '5.0.5',
 
-    NAV_START_TIME: window.performance.timing.navigationStart,
-
     getLastDomUpdateTime: function (_global, callback) {
         // 说明 dom 发生过变化
         if (_global.domUpdateTimeStamp) {
@@ -240,8 +238,8 @@ module.exports = {
             // 记录 dom 更新的时间
             domUpdateTimeStamp: 0,
 
-            // 强制上报的时间，用于手动上报并且首屏没有图片的情况
-            forcedReportTimeStamp: 0,
+            // 手动上报运行的时刻
+            handExcuteTime: 0,
 
             // 计算首屏时间耗时的开始时刻，默认是 navigationStart，对于单页应用，该值有可能修改
             forcedNavStartTimeStamp: window.performance.timing.navigationStart,
@@ -272,10 +270,12 @@ module.exports = {
             img: [/(\.)(png|jpg|jpeg|gif|webp)/i], // 匹配图片的正则表达式
 
             // 监听 body 标签上的 perf-start 变化，如果设置为 true，那么，每次 perf-start 变化均触发首屏时间的自动计算。主要用于单页应用计算首屏
-            watchPerfStartChange: false,
+            watchPerfStartChange: true,
 
             // 延时执行上报
-            delayReport: 0
+            delayReport: 0,
+
+            domChangeList: []
         }
     },
 
@@ -432,7 +432,7 @@ module.exports = {
             // 标记这个请求完成
             _global.requestDetails[requestKey].status = 'complete';
             _global.requestDetails[requestKey].completeTimeStamp = returnTime;
-            _global.requestDetails[requestKey].completeTime = returnTime - _this.NAV_START_TIME;
+            _global.requestDetails[requestKey].completeTime = returnTime - _global.forcedNavStartTimeStamp;
 
             // 从这个请求返回的时刻起，延续一段时间，该时间段内的请求也需要被监听
             _global.catchRequestTimeSections.push([returnTime, returnTime + _global.renderTimeAfterGettingData]);
@@ -560,6 +560,10 @@ module.exports = {
         if (MutationObserver) {
             _global.mutationObserver = new MutationObserver(function () {
                 _global.domUpdateTimeStamp = new Date().getTime();
+                _global.domChangeList.push({
+                    timeStamp: _global.domUpdateTimeStamp,
+                    duration: _global.domUpdateTimeStamp - _global.forcedNavStartTimeStamp
+                });
             });
             _global.mutationObserver.observe(document.body, {
                 childList: true,
@@ -574,7 +578,8 @@ module.exports = {
     },
 
     getPerfStart: function() {
-        return window.parseFloat(document.body.getAttribute('perf-start'));
+        var perfStart = document.body.getAttribute('data-perf-start') || document.body.getAttribute('perf-start');
+        return window.parseFloat(perfStart);
     },
 
     onNavigationStartChange: function (_global, callback) {
@@ -601,7 +606,7 @@ module.exports = {
             if (MutationObserver) {
                 var observer = new MutationObserver(function (mutations, observer) {
                     mutations.forEach(function (mutation) {
-                        if (mutation.attributeName === 'perf-start') {
+                        if (mutation.attributeName === 'perf-start' || mutation.attributeName === 'data-perf-start') {
                             check();
                         }
                     });

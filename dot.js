@@ -7,6 +7,8 @@ var win = window;
 var doc = win.document;
 var util = require('./util');
 
+var globalIndex = 0;
+
 function generateApi() {
     var _global = util.mergeGlobal(util.initGlobal(), {
         intervalDotTimer: null,
@@ -25,6 +27,8 @@ function generateApi() {
 
         abortTimeWhenDelay: 500 // 监控打点会引起页面重绘，如果引发页面重绘的时间超过了该值，则不再做性能统计
     });
+
+    _global.globalIndex = 'dot-' + globalIndex++;
 
     util.watchDomUpdate(_global);
 
@@ -117,6 +121,7 @@ function generateApi() {
                     abortTimeSetting: _global.abortTimeWhenDelay,
                     url: window.location.href.substring(0, 200),
                     dotList: _global.dotList,
+                    globalIndex: _global.globalIndex,
                     type: 'dot'
                 });
 
@@ -187,7 +192,9 @@ function generateApi() {
                 url: window.location.href.substring(0, 200), // 当前页面 url
                 ignoredImages: _global.ignoredImages, // 计算首屏时被忽略的图片
                 device: _global.device, // 当前设备信息
-                success: true
+                success: true,
+                globalIndex: _global.globalIndex,
+                domChangeList: _global.domChangeList
             };
 
             // 输出结果
@@ -433,8 +440,8 @@ function generateApi() {
     function reportTargetObj(dotObj) {
         // 轮询修正 domComplete 的值
         if (dotObj.firstScreenImages.length === 0) {
-            if (_global.forcedReportTimeStamp) {
-                dotObj.firstScreenTimeStamp = _global.forcedReportTimeStamp;
+            if (/^hand/.test(_global.reportDesc)) {
+                dotObj.firstScreenTimeStamp = _global.handExcuteTime;
                 _report(dotObj);
             } else {
                 util.getLastDomUpdateTime(_global, function (lastDomUpdateStamp) {
@@ -523,9 +530,10 @@ module.exports = {
             // 触发用户注册的回调
             preGlobal.onNavigationStartChange(prePerfStartTimeStamp, curPerfStartTimeStamp);
 
-            // 重新运行首屏时间计算，但需要使用 dot 的方式
+            // 下次启动首屏时间计算，设置 navStart 的时刻
             userConfig.forcedNavStartTimeStamp = curPerfStartTimeStamp;
 
+            // 重新运行首屏时间计算，需要使用 dot 的方式
             preGlobal = go().global;
         });
 
@@ -534,7 +542,7 @@ module.exports = {
     hand: function(userConfig) {
         var api = generateApi();
         api.global.reportDesc = 'hand-dot';
-        api.global.forcedReportTimeStamp = new Date().getTime();
+        api.global.handExcuteTime = new Date().getTime();
         api.mergeUserConfig(userConfig);
         api.onStopObserving();
     }

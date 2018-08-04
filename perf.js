@@ -5,12 +5,16 @@ var win = window;
 var doc = win.document;
 var util = require('./util');
 
+var globalIndex = 0;
+
 function generateApi() {
 
     // 所有变量和函数定义在闭包环境，为了支持同时手动上报和自动上报功能
     var _global = util.mergeGlobal(util.initGlobal(), {
         hasStableFound: false
     });
+
+    _global.globalIndex = 'perf-' + globalIndex++;
 
     util.watchDomUpdate(_global);
 
@@ -41,7 +45,7 @@ function generateApi() {
                 return;
             }
 
-            // 如果从计算开始到上报的过程中，perfStart 有变化，则不再统计性能
+            // 如果从计算开始到上报的过程中，perfStart 有变化，则不再上报性能
             if (_global._perfStartChanged) {
                 return;
             }
@@ -93,18 +97,20 @@ function generateApi() {
             version: util.version,
             runtime: util.getTime() - scriptStartTime,
             reportDesc: _global.reportDesc,
-            url: window.location.href.substring(0, 200)
+            url: window.location.href.substring(0, 200),
+            globalIndex: _global.globalIndex,
+            domChangeList: _global.domChangeList
         };
 
         if (!firstScreenImages.length) {
-            if (_global.forcedReportTimeStamp) {
-                resultObj.firstScreenTimeStamp = _global.forcedReportTimeStamp;
-                resultObj.firstScreenTime = _global.forcedReportTimeStamp - _global.forcedNavStartTimeStamp;
+            if (/^hand/.test(_global.reportDesc)) {
+                resultObj.firstScreenTimeStamp = _global.handExcuteTime;
+                resultObj.firstScreenTime = _global.handExcuteTime - _global._originalNavStart;
                 _report(resultObj);
             } else {
                 util.getLastDomUpdateTime(_global, function (lastDomUpdateStamp) {
                     resultObj.firstScreenTimeStamp = lastDomUpdateStamp;
-                    resultObj.firstScreenTime = lastDomUpdateStamp - _global.forcedNavStartTimeStamp;
+                    resultObj.firstScreenTime = lastDomUpdateStamp - _global._originalNavStart;
                     _report(resultObj);
                 });
             }
@@ -137,8 +143,8 @@ function generateApi() {
                     if (firstScreenImages.indexOf(util.formateUrl(imgUrl)) !== -1) {
                         matchedLength++;
 
-                        var responseEnd = parseInt(sourceItem.responseEnd) + performance.timing.navigationStart - _global.forcedNavStartTimeStamp;
-                        var fetchStart = parseInt(sourceItem.fetchStart) + performance.timing.navigationStart - _global.forcedNavStartTimeStamp;
+                        var responseEnd = parseInt(sourceItem.responseEnd);
+                        var fetchStart = parseInt(sourceItem.fetchStart);
                         firstScreenImagesDetail.push({
                             src: imgUrl,
                             responseEnd: responseEnd < 0 ? 0 : responseEnd,
@@ -160,7 +166,7 @@ function generateApi() {
                     resultObj.firstScreenImagesLength = firstScreenImages.length;
 
                     resultObj.firstScreenTime = parseInt(firstScreenImagesDetail[0].responseEnd);
-                    resultObj.firstScreenTimeStamp = parseInt(firstScreenImagesDetail[0].responseEnd) + util.NAV_START_TIME;
+                    resultObj.firstScreenTimeStamp = parseInt(firstScreenImagesDetail[0].responseEnd) + _global._originalNavStart;
 
                     _report(resultObj);
                 }
@@ -284,9 +290,10 @@ module.exports = {
             // 触发用户注册的回调
             preGlobal.onNavigationStartChange(prePerfStartTimeStamp, curPerfStartTimeStamp);
 
-            // 重新运行首屏时间计算，但需要使用 dot 的方式
+            // 下次启动首屏时间计算，设置 navStart 的时刻
             userConfig.forcedNavStartTimeStamp = curPerfStartTimeStamp;
 
+            // 重新运行首屏时间计算，但需要使用 dot 的方式
             preGlobal = require('./dot').auto(userConfig);
         });
 
@@ -295,7 +302,7 @@ module.exports = {
     hand: function (userConfig) {
         var api = generateApi('hand');
         api.global.reportDesc = 'hand-perf';
-        api.global.forcedReportTimeStamp = new Date().getTime();
+        api.global.handExcuteTime = new Date().getTime();
         api.mergeUserConfig(userConfig);
         api.recordFirstScreenInfo('perf-hand');
     }
