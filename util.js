@@ -1,7 +1,7 @@
 var MutationObserver = window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
 
 module.exports = {
-    version: '5.0.5',
+    version: '5.0.7',
 
     getLastDomUpdateTime: function (_global, callback) {
         // 说明 dom 发生过变化
