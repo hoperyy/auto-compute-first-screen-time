@@ -7,7 +7,7 @@ var win = window;
 var doc = win.document;
 var util = require('./util');
 
-var acftGlobal = window._autoComputeFirstScreen_globalInfo;
+var acftGlobal = require('./global-info');
 
 var globalIndex = 0;
 
@@ -104,35 +104,7 @@ function generateApi() {
 
     // 只会执行一次
     function _report(targetObj) {
-        var handler = function() {
-            // 检查是否取消上报
-            if (_global.abortReport) {
-                return;
-            }
-
-            // 如果从计算开始到上报的过程中，perfStart 有变化，则不再统计性能
-            if (_global._perfStartChanged) {
-                return;
-            }
-
-            if (_global.abortByDelayTimeout) {
-                // 上报
-                _global.onReport({
-                    success: false,
-                    delayFirstScreen: _global.delayAll,
-                    abortTimeSetting: _global.abortTimeWhenDelay,
-                    url: window.location.href.substring(0, 200),
-                    dotList: _global.dotList,
-                    globalIndex: _global.globalIndex,
-                    type: 'dot'
-                });
-
-                _global.abortReport = true;
-                return;
-            }
-
-            _global.abortReport = true;
-
+        var generateResultObj = function() {
             // 为 _global.imgMap 添加是否是首屏标志
             var targetFirstScreenImages = null;
             var firstScreenImages = [];
@@ -201,17 +173,52 @@ function generateApi() {
                 navigationTagChangeMap: acftGlobal.navigationTagChangeMap
             };
 
-            // 输出结果
-            _global.onReport(resultObj);
+            return resultObj;
+        }
+
+        var canReport = function () {
+            // 如果退出上报，则直接返回
+            if (_global.hasReported) {
+                return false;
+            }
+
+            if (_global.abortReport) {
+                return false;
+            }
+
+            return true;
         };
+
+        if (_global.abortByDelayTimeout) {
+            // 上报
+            _global.onReport({
+                success: false,
+                delayFirstScreen: _global.delayAll,
+                abortTimeSetting: _global.abortTimeWhenDelay,
+                url: window.location.href.substring(0, 200),
+                dotList: _global.dotList,
+                globalIndex: _global.globalIndex,
+                type: 'dot'
+            });
+            return;
+        }
+
+        var resultObj = generateResultObj();
         
         if (_global.delayReport) {
             var timer = setTimeout(function () {
-                handler();
+                if (canReport()) {
+                    _global.onReport(resultObj);
+                    _global.hasReported = true;
+                }
+                
                 clearTimeout(timer);
             }, _global.delayReport);
         } else {
-            handler();
+            if (canReport()) {
+                _global.onReport(resultObj);
+                _global.hasReported = true;
+            }
         }
     }
 
@@ -528,14 +535,14 @@ module.exports = {
         var api = go();
 
         var preGlobal = api.global;
-        util.onNavigationStartChange(api.global, function (preNavigationStartTimeStamp, curNavigationStartTimeStamp) {
-            preGlobal._perfStartChanged = true;
+        util.onNavigationStartChange(api.global, function (changeInfo) {
+            preGlobal.abortReport = true;
 
             // 触发用户注册的回调
-            preGlobal.onNavigationStartChange(preNavigationStartTimeStamp, curNavigationStartTimeStamp);
+            preGlobal.onNavigationStartChange(changeInfo);
 
             // 下次启动首屏时间计算，设置 navStart 的时刻
-            userConfig.forcedNavStartTimeStamp = curNavigationStartTimeStamp;
+            userConfig.forcedNavStartTimeStamp = changeInfo.timeStamp;
 
             // 重新运行首屏时间计算，需要使用 dot 的方式
             preGlobal = go().global;

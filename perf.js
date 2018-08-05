@@ -5,7 +5,7 @@ var win = window;
 var doc = win.document;
 var util = require('./util');
 
-var acftGlobal = window._autoComputeFirstScreen_globalInfo;
+var acftGlobal = require('./global-info');
 
 var globalIndex = 0;
 
@@ -41,36 +41,37 @@ function generateApi() {
     }
 
     function _report(resultObj) {
-        var handler = function() {
+        var canReport = function() {
             // 如果退出上报，则直接返回
+            if (_global.hasReported) {
+                return false;
+            }
+
             if (_global.abortReport) {
-                return;
+                return false;
             }
 
-            // 如果从计算开始到上报的过程中，perfStart 有变化，则不再上报性能
-            if (_global._perfStartChanged) {
-                return;
-            }
-
-            _global.abortReport = true;
-
-            // 为 resultObj 添加 _global.ignoredImages 字段
-            resultObj.ignoredImages = _global.ignoredImages;
-            resultObj.device = _global.device;
-            resultObj.success = true;
-
-            _global.onReport(resultObj);
-
-            // clear todo
+            return true;
         };
+
+        // 为 resultObj 添加 _global.ignoredImages 字段
+        resultObj.ignoredImages = _global.ignoredImages;
+        resultObj.device = _global.device;
+        resultObj.success = true;
 
         if (_global.delayReport) {
             var timer = setTimeout(function() {
-                handler();
+                if (canReport()) {
+                    _global.hasReported = true;
+                    _global.onReport(resultObj); // 上报的内容是定时器之前的数据
+                }
+                
                 clearTimeout(timer);
             }, _global.delayReport);
         } else {
-            handler();
+            if (canReport()) {
+                _global.onReport(resultObj);
+            }
         }
     }
  
@@ -288,14 +289,14 @@ module.exports = {
 
         // 单页应用才会出现重新设置 perf-start 的情况
         var preGlobal = api.global;
-        util.onNavigationStartChange(api.global, function (preNavigationStartTimeStamp, curNavigationStartTimeStamp) {
-            preGlobal._perfStartChanged = true;
+        util.onNavigationStartChange(api.global, function (changeInfo) {
+            preGlobal.abortReport = true;
 
             // 触发用户注册的回调
-            preGlobal.onNavigationStartChange(preNavigationStartTimeStamp, curNavigationStartTimeStamp);
+            preGlobal.onNavigationStartChange(changeInfo);
 
             // 下次启动首屏时间计算，设置 navStart 的时刻
-            userConfig.forcedNavStartTimeStamp = curNavigationStartTimeStamp;
+            userConfig.forcedNavStartTimeStamp = changeInfo.timeStamp;
 
             // 重新运行首屏时间计算，但需要使用 dot 的方式
             preGlobal = require('./dot').auto(userConfig);

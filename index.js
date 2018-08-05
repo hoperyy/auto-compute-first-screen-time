@@ -13,16 +13,6 @@ var noop = function() {};
 // 强制使用打点方式获取首屏时间
 // supportPerformance = false;
 
-// 定义全局变量，用于内部通信
-window._autoComputeFirstScreen_globalInfo = {
-    watchingNavStartChange: false,
-    navigationTagChangeMap: {
-        realChangeList: [],
-        usedChangeList: []
-    },
-    onloadFinished: false
-};
-
 function getRandom() {
     var random = document.body.getAttribute('perf-random');
 

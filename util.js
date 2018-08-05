@@ -1,6 +1,6 @@
 var MutationObserver = window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
 
-var acftGlobal = window._autoComputeFirstScreen_globalInfo;
+var acftGlobal = require('./global-info');
 
 module.exports = {
     version: '5.0.8',
@@ -231,8 +231,8 @@ module.exports = {
             // 记录 url 改变的历史，用于单页应用性能监控
             urlChangeStore: [],
 
-            // 是否退出上报
-            abortReport: false,
+            // 是否已经上报
+            hasReported: false,
 
             // 描述上报类型，默认是空
             reportDesc: '',
@@ -250,7 +250,7 @@ module.exports = {
 
             _isUsingOriginalNavStart: true,
 
-            _perfStartChanged: false,
+            abortReport: false,
 
             onReport: function () { },
 
@@ -279,7 +279,9 @@ module.exports = {
 
             domChangeList: [],
 
-            navigationStartChangeTag: ['data-perf-start', 'perf-start']
+            navigationStartChangeTag: ['data-perf-start', 'perf-start'],
+
+            navigationStartChangeDebounceTime: 0
         }
     },
 
@@ -552,8 +554,8 @@ module.exports = {
         }
     },
 
-    onNavigationStartChange: function (_global, callback) {
-        if (_global.watchPerfStartChange && !acftGlobal.watchingNavStartChange) {
+    onNavigationStartChange: function (_lanchGlobal, callback) {
+        if (_lanchGlobal.watchPerfStartChange && !acftGlobal.watchingNavStartChange) {
             acftGlobal.watchingNavStartChange = true; // 一个页面，只允许一个观察者
 
             var getNavgationStartChangeTagValue = function (navigationStartChangeTag) {
@@ -589,7 +591,7 @@ module.exports = {
             var realChangeList = acftGlobal.navigationTagChangeMap.realChangeList;
             var usedChangeList = acftGlobal.navigationTagChangeMap.usedChangeList;
             var checkShouldRunCallback = function() {
-                var curTagValue = getNavgationStartChangeTagValue(_global.navigationStartChangeTag);
+                var curTagValue = getNavgationStartChangeTagValue(_lanchGlobal.navigationStartChangeTag);
 
                 if (hasChanged(preTagValue, curTagValue)) {
                     var currentTimeStamp = new Date().getTime();
@@ -599,7 +601,7 @@ module.exports = {
                         curTagValue: curTagValue,
                         value: curTagValue,
                         timeStamp: currentTimeStamp,
-                        time: currentTimeStamp - _global._originalNavStart
+                        time: currentTimeStamp - _lanchGlobal._originalNavStart
                     };
 
                     // 记录真实的变化情况
@@ -613,10 +615,10 @@ module.exports = {
                         var usedListLength = usedChangeList.length;
                         var preUsedTime = usedChangeList[usedListLength - 1].timeStamp;
 
-                        // 防抖，如果在 200ms 内触发了多次变化，只取
-                        if (currentTimeStamp - preUsedTime >= 4000) {
+                        // 防抖，如果在一段时间内触发了多次变化，只取初始变化的那一次
+                        if (currentTimeStamp - preUsedTime >= _lanchGlobal.navigationStartChangeDebounceTime) {
                             usedChangeList.push(changeInfo);
-                            callback(preUsedTime, currentTimeStamp);
+                            callback(changeInfo);
                         }
                     }
                 }
@@ -625,7 +627,7 @@ module.exports = {
             if (MutationObserver) {
                 var observer = new MutationObserver(function (mutations, observer) {
                     mutations.forEach(function (mutation) {
-                        if (_global.navigationStartChangeTag.indexOf(mutation.attributeName) !== -1) {
+                        if (_lanchGlobal.navigationStartChangeTag.indexOf(mutation.attributeName) !== -1) {
                             checkShouldRunCallback();
                         }
                     });
