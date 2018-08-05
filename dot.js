@@ -7,6 +7,8 @@ var win = window;
 var doc = win.document;
 var util = require('./util');
 
+var acftGlobal = window._autoComputeFirstScreen_globalInfo;
+
 var globalIndex = 0;
 
 function generateApi() {
@@ -181,8 +183,9 @@ function generateApi() {
                 firstScreenImages: _global.dotList[0].firstScreenImages, // 首屏图片列表
                 firstScreenImagesLength: _global.dotList[0].firstScreenImages.length, // 首屏图片数量
                 firstScreenImagesDetail: _getFirstScreenImagesDetail(), // 首屏图片细节
-                navigationStart: _global.forcedNavStartTimeStamp,
-                isOriginalNavStart: _global.forcedNavStartTimeStamp === performance.timing.navigationStart,
+                navigationStartTimeStamp: _global.forcedNavStartTimeStamp,
+                navigationStartTime: _global.forcedNavStartTimeStamp - _global._originalNavStart,
+                isOriginalNavStart: _global.forcedNavStartTimeStamp === _global._originalNavStart,
                 delayFirstScreen: delayFirstScreen, // 计算引发的首屏时间 delay
                 delayAll: _global.delayAll, // 计算引发的总 delay
                 type: 'dot',
@@ -194,7 +197,8 @@ function generateApi() {
                 device: _global.device, // 当前设备信息
                 success: true,
                 globalIndex: _global.globalIndex,
-                domChangeList: _global.domChangeList
+                domChangeList: _global.domChangeList,
+                navigationTagChangeMap: acftGlobal.navigationTagChangeMap
             };
 
             // 输出结果
@@ -524,14 +528,14 @@ module.exports = {
         var api = go();
 
         var preGlobal = api.global;
-        util.onNavigationStartChange(api.global, function (prePerfStartTimeStamp, curPerfStartTimeStamp) {
+        util.onNavigationStartChange(api.global, function (preNavigationStartTimeStamp, curNavigationStartTimeStamp) {
             preGlobal._perfStartChanged = true;
 
             // 触发用户注册的回调
-            preGlobal.onNavigationStartChange(prePerfStartTimeStamp, curPerfStartTimeStamp);
+            preGlobal.onNavigationStartChange(preNavigationStartTimeStamp, curNavigationStartTimeStamp);
 
             // 下次启动首屏时间计算，设置 navStart 的时刻
-            userConfig.forcedNavStartTimeStamp = curPerfStartTimeStamp;
+            userConfig.forcedNavStartTimeStamp = curNavigationStartTimeStamp;
 
             // 重新运行首屏时间计算，需要使用 dot 的方式
             preGlobal = go().global;

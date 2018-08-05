@@ -5,6 +5,8 @@ var win = window;
 var doc = win.document;
 var util = require('./util');
 
+var acftGlobal = window._autoComputeFirstScreen_globalInfo;
+
 var globalIndex = 0;
 
 function generateApi() {
@@ -92,14 +94,16 @@ function generateApi() {
             delayFirstScreen: endTime - startTime,
             firstScreenTime: -1, // 需要被覆盖的
             firstScreenTimeStamp: -1, // 需要被覆盖的
-            navigationStart: _global.forcedNavStartTimeStamp,
-            isOriginalNavStart: _global.forcedNavStartTimeStamp === performance.timing.navigationStart,
+            navigationStartTimeStamp: _global.forcedNavStartTimeStamp,
+            navigationStartTime: _global.forcedNavStartTimeStamp - _global._originalNavStart,
+            isOriginalNavStart: _global.forcedNavStartTimeStamp === _global._originalNavStart,
             version: util.version,
             runtime: util.getTime() - scriptStartTime,
             reportDesc: _global.reportDesc,
             url: window.location.href.substring(0, 200),
             globalIndex: _global.globalIndex,
-            domChangeList: _global.domChangeList
+            domChangeList: _global.domChangeList,
+            navigationTagChangeMap: acftGlobal.navigationTagChangeMap
         };
 
         if (!firstScreenImages.length) {
@@ -284,14 +288,14 @@ module.exports = {
 
         // 单页应用才会出现重新设置 perf-start 的情况
         var preGlobal = api.global;
-        util.onNavigationStartChange(api.global, function (prePerfStartTimeStamp, curPerfStartTimeStamp) {
+        util.onNavigationStartChange(api.global, function (preNavigationStartTimeStamp, curNavigationStartTimeStamp) {
             preGlobal._perfStartChanged = true;
 
             // 触发用户注册的回调
-            preGlobal.onNavigationStartChange(prePerfStartTimeStamp, curPerfStartTimeStamp);
+            preGlobal.onNavigationStartChange(preNavigationStartTimeStamp, curNavigationStartTimeStamp);
 
             // 下次启动首屏时间计算，设置 navStart 的时刻
-            userConfig.forcedNavStartTimeStamp = curPerfStartTimeStamp;
+            userConfig.forcedNavStartTimeStamp = curNavigationStartTimeStamp;
 
             // 重新运行首屏时间计算，但需要使用 dot 的方式
             preGlobal = require('./dot').auto(userConfig);

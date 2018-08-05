@@ -1,6 +1,6 @@
 {
   "name": "auto-compute-first-screen-time",
-  "version": "5.0.7",
+  "version": "5.0.8",
   "description": "A tool for auto computing first screen time of one page.",
   "main": "index.js",
   "scripts": {

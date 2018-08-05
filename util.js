@@ -1,7 +1,9 @@
 var MutationObserver = window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
 
+var acftGlobal = window._autoComputeFirstScreen_globalInfo;
+
 module.exports = {
-    version: '5.0.7',
+    version: '5.0.8',
 
     getLastDomUpdateTime: function (_global, callback) {
         // 说明 dom 发生过变化
@@ -265,7 +267,7 @@ module.exports = {
             renderTimeAfterGettingData: 300,
 
             // onload 之后延时一段时间，如果到期后仍然没有异步请求发出，则认为是纯静态页面
-            watingTimeWhenDefineStaticPage: 3000,
+            watingTimeWhenDefineStaticPage: 2000,
 
             img: [/(\.)(png|jpg|jpeg|gif|webp)/i], // 匹配图片的正则表达式
 
@@ -275,7 +277,9 @@ module.exports = {
             // 延时执行上报
             delayReport: 0,
 
-            domChangeList: []
+            domChangeList: [],
+
+            navigationStartChangeTag: ['data-perf-start', 'perf-start']
         }
     },
 
@@ -478,7 +482,7 @@ module.exports = {
     mergeUserConfig: function (_global, userConfig) {
         if (userConfig) {
             for (var userConfigKey in userConfig) {
-                if (['watingTimeWhenDefineStaticPage', 'onReport', 'onStableStatusFound', 'renderTimeAfterGettingData', 'onAllXhrResolved', 'onNavigationStartChange', 'watchPerfStartChange', 'forcedNavStartTimeStamp', 'delayReport'].indexOf(userConfigKey) !== -1) {
+                if (['watingTimeWhenDefineStaticPage', 'onReport', 'onStableStatusFound', 'renderTimeAfterGettingData', 'onAllXhrResolved', 'onNavigationStartChange', 'watchPerfStartChange', 'forcedNavStartTimeStamp', 'delayReport', 'navigationStartChangeTag'].indexOf(userConfigKey) !== -1) {
                     _global[userConfigKey] = userConfig[userConfigKey];
                 }
             }
@@ -506,38 +510,9 @@ module.exports = {
         _global._isUsingOriginalNavStart = _global.forcedNavStartTimeStamp == _global._originalNavStart;
     },
 
-    _appendScript: function (callback) {
-        var insertedScript = null;
-        var functionName = 'AUTO_COMPUTE_FIRST_SCREEN_TIME_' + this.getTime() + '_' + parseInt(Math.random() * 100);
-
-        var insert = function () {
-            insertedScript = document.createElement('script');
-            insertedScript.innerHTML = 'window.' + functionName + ' && window.' + functionName + '()';
-            insertedScript.async = false;
-            document.body.appendChild(insertedScript);
-        };
-
-        window[functionName] = function () {
-            callback();
-
-            // 清理
-            document.body.removeChild(insertedScript);
-            insertedScript = null;
-            window[functionName] = null;
-        };
-
-        if (window.document && window.document.createElement) {
-            insert();
-        } else {
-            document.addEventListener('DOMContentLoaded', function () {
-                insert();
-            });
-        }
-    },
-
     testStaticPage: function (onStable, _global) {
         var handler = function () {
-            window.autoComputeFirstScreenTimeOnloadFinishedTag = true;
+            acftGlobal.onloadFinished = true;
 
             // 如果脚本运行完毕，延时一段时间后，再判断页面是否发出异步请求，如果页面还没有发出异步请求，则认为该时刻为稳定时刻，尝试上报
             var timer = setTimeout(function () {
@@ -549,7 +524,7 @@ module.exports = {
             }, _global.watingTimeWhenDefineStaticPage);
         };
 
-        if (window.autoComputeFirstScreenTimeOnloadFinishedTag) {
+        if (acftGlobal.onloadFinished) {
             handler();
         } else {
             window.addEventListener('load', handler);
@@ -577,43 +552,91 @@ module.exports = {
         }
     },
 
-    getPerfStart: function() {
-        var perfStart = document.body.getAttribute('data-perf-start') || document.body.getAttribute('perf-start');
-        return window.parseFloat(perfStart);
-    },
-
     onNavigationStartChange: function (_global, callback) {
-        if (_global.watchPerfStartChange && !window.autoComputeFirstScreenTime_watchPerfStartChange) {
-            window.autoComputeFirstScreenTime_watchPerfStartChange = true; // 一个页面，只允许一个观察者
+        if (_global.watchPerfStartChange && !acftGlobal.watchingNavStartChange) {
+            acftGlobal.watchingNavStartChange = true; // 一个页面，只允许一个观察者
 
-            var prePerfStartTimeStamp;
-            var curPerfStartTimeStamp;
+            var getNavgationStartChangeTagValue = function (navigationStartChangeTag) {
+                var value;
+                for (var i = 0, len = navigationStartChangeTag.length; i < len; i++) {
+                    value = document.body.getAttribute(navigationStartChangeTag[i]);
 
-            var that = this;
-
-            var hasFirstChangeHappened = false;
-
-            var check = function () {
-                curPerfStartTimeStamp = that.getPerfStart();
-
-                if (prePerfStartTimeStamp && curPerfStartTimeStamp && prePerfStartTimeStamp != curPerfStartTimeStamp) {
-                    callback(prePerfStartTimeStamp, curPerfStartTimeStamp);
+                    if (value) {
+                        return value;
+                    }
                 }
 
-                prePerfStartTimeStamp = curPerfStartTimeStamp;
+                return '';
+            };
+
+            var hasChanged = function(pre, cur) {
+                // 当前有值，且和之前的值不同（之前的值可以为空），认为变化了
+                if (cur && cur != pre) {
+                    return true;
+                }
+
+                // 当前无值，但之前有值，认为变化了
+                if (!cur && pre) {
+                    return true;
+                }
+
+                return false;
+            }
+
+            var preTagValue;
+            var curTagValue;
+
+            var realChangeList = acftGlobal.navigationTagChangeMap.realChangeList;
+            var usedChangeList = acftGlobal.navigationTagChangeMap.usedChangeList;
+            var checkShouldRunCallback = function() {
+                var curTagValue = getNavgationStartChangeTagValue(_global.navigationStartChangeTag);
+
+                if (hasChanged(preTagValue, curTagValue)) {
+                    var currentTimeStamp = new Date().getTime();
+
+                    var changeInfo = {
+                        preTagValue: preTagValue,
+                        curTagValue: curTagValue,
+                        value: curTagValue,
+                        timeStamp: currentTimeStamp,
+                        time: currentTimeStamp - _global._originalNavStart
+                    };
+
+                    // 记录真实的变化情况
+                    realChangeList.push(changeInfo);
+
+                    preTagValue = curTagValue;
+                    
+                    if (realChangeList.length === 1) { // 第 1 次变化，不触发 callback
+                        usedChangeList.push(changeInfo);
+                    } else { // 第 2 次和更多的变化
+                        var usedListLength = usedChangeList.length;
+                        var preUsedTime = usedChangeList[usedListLength - 1].timeStamp;
+
+                        // 防抖，如果在 200ms 内触发了多次变化，只取
+                        if (currentTimeStamp - preUsedTime >= 4000) {
+                            usedChangeList.push(changeInfo);
+                            callback(preUsedTime, currentTimeStamp);
+                        }
+                    }
+                }
             };
 
             if (MutationObserver) {
                 var observer = new MutationObserver(function (mutations, observer) {
                     mutations.forEach(function (mutation) {
-                        if (mutation.attributeName === 'perf-start' || mutation.attributeName === 'data-perf-start') {
-                            check();
+                        if (_global.navigationStartChangeTag.indexOf(mutation.attributeName) !== -1) {
+                            checkShouldRunCallback();
                         }
                     });
                 });
-                observer.observe(document.body, { attributes: true });
+                observer.observe(document.body, { 
+                    attributes: true,
+                    childList: false,
+                    subtree: false
+                });
             } else {
-                setInterval(check, 250);
+                setInterval(checkShouldRunCallback, 250);
             }
         }
     }
