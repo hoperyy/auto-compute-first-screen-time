@@ -271,7 +271,7 @@ module.exports = {
 
             img: [/(\.)(png|jpg|jpeg|gif|webp)/i], // 匹配图片的正则表达式
 
-            // 监听 body 标签上的 perf-start 变化，如果设置为 true，那么，每次 perf-start 变化均触发首屏时间的自动计算。主要用于单页应用计算首屏
+            // 监听 body 标签上的 tag 发生变化，如果设置为 true，那么，每次变化均触发首屏时间的自动计算。主要用于单页应用计算首屏
             watchPerfStartChange: true,
 
             // 延时执行上报
@@ -281,7 +281,8 @@ module.exports = {
 
             navigationStartChangeTag: ['data-perf-start', 'perf-start'],
 
-            navigationStartChangeDebounceTime: 0
+            // tag 变化防抖，200ms 以内的频繁变化不被计算
+            navigationStartChangeDebounceTime: 200
         }
     },
 
@@ -537,7 +538,7 @@ module.exports = {
         if (MutationObserver) {
             _global.mutationObserver = new MutationObserver(function () {
                 _global.domUpdateTimeStamp = new Date().getTime();
-                _global.domChangeList.push({
+                _global.domChangeList.unshift({
                     timeStamp: _global.domUpdateTimeStamp,
                     duration: _global.domUpdateTimeStamp - _global.forcedNavStartTimeStamp
                 });
@@ -558,7 +559,7 @@ module.exports = {
         if (_lanchGlobal.watchPerfStartChange && !acftGlobal.watchingNavStartChange) {
             acftGlobal.watchingNavStartChange = true; // 一个页面，只允许一个观察者
 
-            var getNavgationStartChangeTagValue = function (navigationStartChangeTag) {
+            var getTagValue = function (navigationStartChangeTag) {
                 var value;
                 for (var i = 0, len = navigationStartChangeTag.length; i < len; i++) {
                     value = document.body.getAttribute(navigationStartChangeTag[i]);
@@ -591,7 +592,7 @@ module.exports = {
             var realChangeList = acftGlobal.navigationTagChangeMap.realChangeList;
             var usedChangeList = acftGlobal.navigationTagChangeMap.usedChangeList;
             var checkShouldRunCallback = function() {
-                var curTagValue = getNavgationStartChangeTagValue(_lanchGlobal.navigationStartChangeTag);
+                var curTagValue = getTagValue(_lanchGlobal.navigationStartChangeTag);
 
                 if (hasChanged(preTagValue, curTagValue)) {
                     var currentTimeStamp = new Date().getTime();

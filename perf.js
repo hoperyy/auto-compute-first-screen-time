@@ -287,7 +287,7 @@ module.exports = {
 
         var api = go();
 
-        // 单页应用才会出现重新设置 perf-start 的情况
+        // 针对单页应用处理
         var preGlobal = api.global;
         util.onNavigationStartChange(api.global, function (changeInfo) {
             preGlobal.abortReport = true;
