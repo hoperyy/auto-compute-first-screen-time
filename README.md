@@ -18,7 +18,7 @@ A tool for computing first screen time of one page with inaccuracy less than 250
 
 ## Precision
 
-the distance between average tested time and real first screen time is less than 200ms (tested in wifi/fast 3G/slow 3G)
+The distance between average tested time and real first screen time is `+(0 ~ 250ms)` (tested in wifi/fast 3G/slow 3G)
 
 ## How To Use
 
