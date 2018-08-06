@@ -30,25 +30,6 @@ The distance between average tested time and real first screen time is `+(0 ~ 25
     var autoComputeFirstScreenTime = require('auto-compute-first-screen-time');
     
     autoComputeFirstScreenTime({
-
-        // required: false
-        request: {
-            /*
-             * the request that will be caught for computing first screen time;
-             * RegExp in Array Required;
-             * example: [/mtop\.alibaba\.com/i]
-             */
-            limitedIn: [],
-
-            /* 
-             * the request that won't be caught for computing first screen time;
-             * RegExp in Array Required;
-             * example: [/list\.alibaba\.com/i]
-             */
-            exclude: []
-        },
-
-        // required: false
         onReport: function (result) {
             if (result.success) {
                 console.log(result.firstScreenTime)
