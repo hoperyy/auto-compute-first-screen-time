@@ -85,6 +85,64 @@ the distance between average tested time and real first screen time is less than
 
     +   `options.onReport`
 
+        +   type: `Function`
+        +   default
+
+            ```javascript
+            onReport: function (result) {
+                // black function
+            }
+            ```
+
+        +   description
+
+            It will run when first screen time is found.
+
+            ```javascript
+            onReport: function (result) {
+                if (result.success) {
+                    console.log(result.firstScreenTime)
+                } else {
+                    console.log(result);
+                }
+            }
+            ```
+
+    +   `options.request`
+        +   type: `Object`
+        +   description
+
+            ```javascript
+            limitedIn: [], // RegExp as item
+            exclude: [] // RegExp as item
+            ```
+
+            `auto-compute-first-screen-time` will catch request for computing first screen time.
+
+            `limitedIn` controls which kind of requests should be caught, such as `[/mtop\.alibaba\.com/i]`.
+
+            `exclue` controls which kind of requests should not be caught, such as `[/list\.alibaba\.com/i]`.
+
+    +   `options.delayReport`
+
+        +   type: `Number`
+        +   default: `0`
+        +   description
+
+            `auto-compute-first-screen-time` will run `onReport` callback immediately by default.
+
+            When `delayReport` is setted, `auto-compute-first-screen-time` will run `onReport` after some time.
+
+            It can be used in some pages that require users login.
+
+            Delay report can help you avoid report the wrong page (always login page).
+
+            For example:
+
+            ```javascript
+            delayReport: 1000 // ms
+            ```
+ 
     +   `options.navigationStartChangeTag`
 
         +   type: `Array`
