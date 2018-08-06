@@ -138,7 +138,7 @@ The distance between average tested time and real first screen time is `+(0 ~ 25
 
             But for single-page-application(SPA), it's wrong.
 
-            Because SPA has some routes, when the page's route changes, the first screen time should be computed by:
+            Because SPA has sub routes, when route changes, the first screen time should be computed by:
 
             ```javascript
             firstScreenTimeStamp - the-timestamp-when-route-changed
@@ -146,7 +146,7 @@ The distance between average tested time and real first screen time is `+(0 ~ 25
 
             `auto-compute-first-screen-time` will watch `options.navigationStartChangeTag` changes when computing first screen.
 
-            `'data-perf-start'` will be watched firstly, if there is no `'data-perf-start'`, `'perf-start'` will be watched. And the tags must be setted on `<body>`.
+            `'data-perf-start'` will be watched firstly, if there is no `'data-perf-start'`, `'perf-start'` will be watched. **And the tags must be setted on `<body>`**.
 
             So for SPA, you should do one more job: when route changes, reset `perf-start` or `data-perf-start` on `<body>`.
 
@@ -201,6 +201,8 @@ The distance between average tested time and real first screen time is `+(0 ~ 25
         ```
 
         When `perf-scroll` is added on a tag, part of the formula will change as below:
+
+        from
         
         ```
         var scrollTop = document.documentElement.scrollTop || document.body.scrollTop
