@@ -79,6 +79,46 @@ the distance between average tested time and real first screen time is less than
     });
     ```
 
++   options
+
+    Options means `autoComputeFirstScreenTime(options)` and `autoComputeFirstScreenTime.report(options)`.
+
+    +   `options.onReport`
+
+    +   `options.navigationStartChangeTag`
+
+        +   type: `Array`
+        +   default: `['data-perf-start', 'perf-start']`
+        +   description
+
+            Usually, when first screen time stamp is found, we get the first screen time by:
+
+            ```javascript
+            var firstScreenTime = firstScreenTimeStamp - performance.timing.navigationStart
+            ```
+
+            But for single-page-application(SPA), it's wrong.
+
+            Because SPA has some routes, when the page's route changes, the first screen time should be computed by:
+
+            ```javascript
+            firstScreenTimeStamp - the-timestamp-when-route-changed
+            ```
+
+            `auto-compute-first-screen-time` will watch `options.navigationStartChangeTag` changes when computing first screen.
+
+            `'data-perf-start'` will be watched firstly, if there is no `'data-perf-start'`, `'perf-start'` will be watched. And the tags must be setted on `<body>`.
+
+            So for SPA, you should do one more job: when route changes, reset `perf-start` or `data-perf-start` on `<body>`.
+
+            For example by vue SPA:
+
+            ```javascript
+            router.afterEach(function(to, from) {
+                document.body.dataset.perfStart = Date.now();
+            })
+            ```
+
 +   Dom control
 
     +   `perf-ignore`
@@ -137,34 +177,6 @@ the distance between average tested time and real first screen time is less than
         } else {
             scrollTop = 0;
         }
-        ```
-
-    +   `perf-start` or `data-perf-start` on `<body>`
-
-        Usually, when first screen finished time stamp is found, we get the first screen time by:
-
-        ```javascript
-        firstScreenTimeStamp - performance.timing.navigationStart
-        ```
-
-        But for single-page-application(SPA), it's wrong.
-
-        Because SPA has some routes, when the page's route changes, the first screen time should be computed by:
-
-        ```javascript
-        firstScreenTimeStamp - the-time-stamp-when-route-changed
-        ```
-
-        The `data-perf-start` or `perf-start` is just `the-time-stamp-when-route-changed`.
-
-        So for SPA, you should do one more job: when route changes, reset `perf-start` or `data-perf-start` on `<body>`.
-
-        For example by vue SPA:
-
-        ```javascript
-        router.afterEach(function(to, from) {
-            document.body.dataset.perfStart = Date.now();
-        })
         ```
 
 ## Support xhr ?

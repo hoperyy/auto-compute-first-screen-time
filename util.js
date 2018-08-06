@@ -3,7 +3,7 @@ var MutationObserver = window.MutationObserver || window.WebKitMutationObserver 
 var acftGlobal = require('./global-info');
 
 module.exports = {
-    version: '5.0.8',
+    version: '5.0.9',
 
     getLastDomUpdateTime: function (_global, callback) {
         // 说明 dom 发生过变化
