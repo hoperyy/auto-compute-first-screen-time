@@ -5,7 +5,7 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.2.0',
+    version: '5.2.1',
 
     getLastDomUpdateTime: function (_global, callback) {
         // 说明 dom 发生过变化
@@ -201,8 +201,20 @@ module.exports = {
         return requests;
     },
 
-    formateUrl: function (url) {
+    formateUrlByRemove: function (url) {
         return url.replace(/^http(s)?\:/, '').replace(/^\/\//, '');
+    },
+
+    formateUrlByAdd: function (url) {
+        if (/^http/.test(url)) {
+            return url;
+        }
+
+        if (/^\/\//.test(url)) {
+            return window.location.protocol + url;
+        }
+
+        return window.location.protocol + '//' + url;
     },
 
     initGlobal: function () {

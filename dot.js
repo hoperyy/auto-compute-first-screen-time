@@ -310,7 +310,7 @@ function generateApi() {
                     afterDownload(src);
                 } else {
                     var img = new Image();
-                    img.src = src;
+                    img.src = util.formateUrlByAdd(src);
 
                     if (img.complete) {
                         // 记录该图片加载完成的时间，以最早那次为准

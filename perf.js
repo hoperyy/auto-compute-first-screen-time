@@ -79,8 +79,8 @@ function generateApi() {
     // 重操作：记录运行该方法时刻的 dom 信息，主要是 images
     function recordFirstScreenInfo() {
         var startTime =  util.getTime();
-        var notFormattedFirstScreenImagesUrl = _getImagesInFirstScreen();
-        var firstScreenImages = notFormattedFirstScreenImagesUrl.map(util.formateUrl);
+        var firstScreenImages = _getImagesInFirstScreen();
+        var formattedFirstScreenImages = firstScreenImages.map(util.formateUrlByRemove);
         var endTime = util.getTime();
         var firstScreenImagesDetail = [];
 
@@ -155,10 +155,10 @@ function generateApi() {
 
             var protocol = window.location.protocol;
 
-            firstScreenImages.forEach(function(src, index) {
+            firstScreenImages.forEach(function(src) {
                 var img = new Image();
 
-                img.src = notFormattedFirstScreenImagesUrl[index];
+                img.src = util.formateUrlByAdd(src);
 
                 if (img.complete) {
                     afterLoad(src);
@@ -198,7 +198,7 @@ function generateApi() {
                 for (i = 0, len = filteredSource.length; i < len; i++) {
                     var sourceItem = filteredSource[i];
                     var imgUrl = sourceItem.name;
-                    if (firstScreenImages.indexOf(util.formateUrl(imgUrl)) !== -1) {
+                    if (formattedFirstScreenImages.indexOf(util.formateUrlByRemove(imgUrl)) !== -1) {
                         matchedLength++;
 
                         var responseEnd = parseInt(sourceItem.responseEnd);
@@ -241,11 +241,10 @@ function generateApi() {
         };
 
         var checkUseOnload = function() {
-            return true;
             for (var i = 0, len = firstScreenImages.length; i < len; i++) {
                 var img = new Image();
 
-                img.src = firstScreenImages[i];
+                img.src = util.formateUrlByAdd(firstScreenImages[i]);
 
                 if (!img.complete) {
                     return true;
