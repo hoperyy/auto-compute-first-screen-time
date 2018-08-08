@@ -2,8 +2,10 @@ var MutationObserver = window.MutationObserver || window.WebKitMutationObserver 
 
 var acftGlobal = require('./global-info');
 
+var SLICE = Array.prototype.slice;
+
 module.exports = {
-    version: '5.0.9',
+    version: '5.1.0',
 
     getLastDomUpdateTime: function (_global, callback) {
         // 说明 dom 发生过变化
@@ -264,7 +266,7 @@ module.exports = {
             },
 
             // 获取数据后，认为渲染 dom 的时长；同时也是串联请求的等待间隔
-            renderTimeAfterGettingData: 300,
+            renderTimeAfterGettingData: 500,
 
             // onload 之后延时一段时间，如果到期后仍然没有异步请求发出，则认为是纯静态页面
             watingTimeWhenDefineStaticPage: 2000,
@@ -282,7 +284,14 @@ module.exports = {
             navigationStartChangeTag: ['data-perf-start', 'perf-start'],
 
             // tag 变化防抖，200ms 以内的频繁变化不被计算
-            navigationStartChangeDebounceTime: 200
+            navigationStartChangeDebounceTime: 200,
+
+            domUpdateMutationObserver: null,
+
+            scriptLoadingMutationObserver: null,
+
+            // 用于拦截 jsonp 请求，js url 匹配该正则时
+            jsonpFilter: /callback=jsonp\(/
         }
     },
 
@@ -299,49 +308,12 @@ module.exports = {
         return defaultGlobal;
     },
 
-    overrideFetch: function (onRequestSend, afterRequestReturn) {
-        if (window.fetch && typeof Promise === 'function') {
-            // ensure Promise exists. If not, skip cathing request
-            var oldFetch = window.fetch;
-            window.fetch = function () {
-                var _this = this;
-                var args = arguments;
-
-                return new Promise(function (resolve, reject) {
-                    var url;
-                    var requestKey;
-
-                    if (typeof args[0] === 'string') {
-                        url = args[0];
-                    } else if (typeof args[0] === 'object') { // Request Object
-                        url = args[0].url;
-                    }
-
-                    // when failed to get fetch url, skip report
-                    if (url) {
-                        // console.warn('[auto-compute-first-screen-time] no url param found in "fetch(...)"');
-                        requestKey = onRequestSend(url, 'fetch').requestKey;
-                    }
-
-                    oldFetch.apply(_this, args).then(function (response) {
-                        if (requestKey) {
-                            afterRequestReturn(requestKey);
-                        }
-                        resolve(response);
-                    }).catch(function (err) {
-                        if (requestKey) {
-                            afterRequestReturn(requestKey);
-                        }
-                        reject(err);
-                    });
-                })
-            };
-        }
-    },
-
     overrideRequest: function (_global, onStable) {
         var _this = this;
         var requestTimerStatusPool = {};
+
+        // 用于统计 js 请求（不含 jsonp）
+        var scriptRequestPool = {};
 
         var hasAllReuestReturned = function () {
             for (var key in _global.requestDetails) {
@@ -429,7 +401,6 @@ module.exports = {
             }
         };
 
-
         var afterRequestReturn = function (requestKey) {
             //  当前时刻
             var returnTime = _this.getTime();
@@ -472,20 +443,176 @@ module.exports = {
                     };
                 }
 
-                return oldXhrSend.apply(this, [].slice.call(arguments));
+                return oldXhrSend.apply(this, SLICE.call(arguments));
             };
+        };
+        
+        var overrideFetch = function (onRequestSend, afterRequestReturn) {
+            if (window.fetch && typeof Promise === 'function') {
+                // ensure Promise exists. If not, skip cathing request
+                var oldFetch = window.fetch;
+                window.fetch = function () {
+                    var _this = this;
+                    var args = arguments;
+
+                    return new Promise(function (resolve, reject) {
+                        var url;
+                        var requestKey;
+
+                        if (typeof args[0] === 'string') {
+                            url = args[0];
+                        } else if (typeof args[0] === 'object') { // Request Object
+                            url = args[0].url;
+                        }
+
+                        // when failed to get fetch url, skip report
+                        if (url) {
+                            // console.warn('[auto-compute-first-screen-time] no url param found in "fetch(...)"');
+                            requestKey = onRequestSend(url, 'fetch').requestKey;
+                        }
+
+                        oldFetch.apply(_this, args).then(function (response) {
+                            if (requestKey) {
+                                afterRequestReturn(requestKey);
+                            }
+                            resolve(response);
+                        }).catch(function (err) {
+                            if (requestKey) {
+                                afterRequestReturn(requestKey);
+                            }
+                            reject(err);
+                        });
+                    })
+                };
+            }
+        };
+
+        var overrideJsonp = function (onRequestSend, afterRequestReturn) {
+                var requestMap = {};
+                var responseMap = {};
+
+                var getScriptSrc = function (node) {
+                    if (/script/i.test(node.tagName) && /^http/.test(node.src)) {
+                        return node.src;
+                    }
+                    return '';
+                };
+
+                var afterLoadOrErrorOrTimeout = function (requestKey) {
+                    if (!responseMap[requestKey]) {
+                        responseMap[requestKey] = true;
+                        afterRequestReturn(requestKey);
+                    }
+                }
+
+                var addLoadWatcher = function (node) {
+                    var src = getScriptSrc(node);
+
+                    if (!src) {
+                        return;
+                    }
+
+                    // filter jsonp script url
+                    if (!_global.jsonpFilter.test(src)) {
+                        return;
+                    }
+
+                    if (!requestMap[src]) {
+                        requestMap[src] = true;
+
+                        var requestKey = onRequestSend(src, 'script').requestKey;
+
+                        // 超时时间为 3000
+                        var timeoutTimer = setTimeout(function () {
+                            afterLoadOrErrorOrTimeout(requestKey);
+                            clearTimeout(timeoutTimer);
+                        }, 3000);
+
+                        if (node.readyState) { // IE
+                            node.addEventListener('readystatechange', function () {
+                                if (script.readyState == 'loaded' || script.readyState == 'complete') {
+                                    afterLoadOrErrorOrTimeout(requestKey);
+                                    clearTimeout(timeoutTimer);
+                                }
+                            });
+                        }
+                        else { // Others
+                            node.addEventListener('load', function () {
+                                afterLoadOrErrorOrTimeout(requestKey);
+                                clearTimeout(timeoutTimer);
+                            });
+                            node.addEventListener('error', function () {
+                                afterLoadOrErrorOrTimeout(requestKey);
+                                clearTimeout(timeoutTimer);
+                            });
+                        }
+                    }
+
+                };
+
+                
+                var queryScriptNode = function(callback) {
+                    var scripts = document.getElementsByTagName('script');
+                    var scriptsArray = SLICE.call(scripts, 0);
+
+                    for (var i = 0, len = scriptsArray.length; i < len; i++) {
+                        callback(scriptsArray[i]);
+                    }
+                };
+
+                if (MutationObserver) {
+                    _global.scriptLoadingMutationObserver = new MutationObserver(function (mutations, observer) {
+                        mutations.forEach(function (mutation) {
+                            if (mutation.addedNodes) {
+                                mutation.addedNodes.forEach(function (addedNode) {
+                                    addLoadWatcher(addedNode);
+                                });
+                            }
+                        });
+                    });
+                    _global.scriptLoadingMutationObserver.observe(document.body, {
+                        attributes: false,
+                        childList: true,
+                        subtree: true
+                    });
+
+                    queryScriptNode(function (scriptNode) {
+                        addLoadWatcher(scriptNode);
+                    });
+                } else {
+                    _global.scriptLoadingMutationObserverMockTimer = setInterval(function () {
+                        queryScriptNode(function(scriptNode) {
+                            addLoadWatcher(scriptNode);
+                        });
+                    }, 200);
+
+                    queryScriptNode(function (scriptNode) {
+                        addLoadWatcher(scriptNode);
+                    });
+                }
         };
 
         // overide fetch first, then xhr, because fetch could be mocked by xhr
-        this.overrideFetch(onRequestSend, afterRequestReturn);
+        overrideFetch(onRequestSend, afterRequestReturn);
 
         overideXhr(onRequestSend, afterRequestReturn);
+        
+        overrideJsonp(onRequestSend, afterRequestReturn);
+    },
+
+    stopCatchingRequest: function (_global) {
+        if (_global.scriptLoadingMutationObserverMockTimer) {
+            clearInterval(_global.scriptLoadingMutationObserverMockTimer);
+        }
+        if (_global.scriptLoadingMutationObserver) {
+            _global.scriptLoadingMutationObserver.disconnect();
+        }
     },
 
     mergeUserConfig: function (_global, userConfig) {
         if (userConfig) {
             for (var userConfigKey in userConfig) {
-                if (['watingTimeWhenDefineStaticPage', 'onReport', 'onStableStatusFound', 'renderTimeAfterGettingData', 'onAllXhrResolved', 'onNavigationStartChange', 'watchPerfStartChange', 'forcedNavStartTimeStamp', 'delayReport', 'navigationStartChangeTag'].indexOf(userConfigKey) !== -1) {
+                if (['watingTimeWhenDefineStaticPage', 'onReport', 'onStableStatusFound', 'renderTimeAfterGettingData', 'onAllXhrResolved', 'onNavigationStartChange', 'watchPerfStartChange', 'forcedNavStartTimeStamp', 'delayReport', 'navigationStartChangeTag', 'jsonpFilter'].indexOf(userConfigKey) !== -1) {
                     _global[userConfigKey] = userConfig[userConfigKey];
                 }
             }
@@ -536,22 +663,22 @@ module.exports = {
 
     watchDomUpdate: function (_global) {
         if (MutationObserver) {
-            _global.mutationObserver = new MutationObserver(function () {
+            _global.domUpdateMutationObserver = new MutationObserver(function () {
                 _global.domUpdateTimeStamp = new Date().getTime();
                 _global.domChangeList.unshift({
                     timeStamp: _global.domUpdateTimeStamp,
                     duration: _global.domUpdateTimeStamp - _global.forcedNavStartTimeStamp
                 });
             });
-            _global.mutationObserver.observe(document.body, {
+            _global.domUpdateMutationObserver.observe(document.body, {
                 childList: true,
                 subtree: true
             });
         }
     },
     stopWatchDomUpdate: function (_global) {
-        if (_global.mutationObserver) {
-            _global.mutationObserver.disconnect();
+        if (_global.domUpdateMutationObserver) {
+            _global.domUpdateMutationObserver.disconnect();
         }
     },
 

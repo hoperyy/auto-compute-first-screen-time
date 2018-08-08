@@ -123,6 +123,14 @@ The distance between average tested time and real first screen time is `+(0 ~ 25
             ```javascript
             delayReport: 1000 // ms
             ```
+
+    +   `options.jsonpFilter`
+
+        +   type: `RegExp`
+        +   default: `/jsonp=callback\(/`
+        +   description
+
+            Fiter for cathing jsonp request.
  
     +   `options.navigationStartChangeTag`
 
@@ -225,6 +233,14 @@ The distance between average tested time and real first screen time is `+(0 ~ 25
 Yes!
 
 ## Support fetch ?
+
+Yes!
+
+## Support jsonp ?
+
+Yes!
+
+## Support async js like webpack split bundle ?
 
 Yes!
 

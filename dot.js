@@ -418,6 +418,7 @@ function generateApi() {
         _global.stopCatchingRequest = true;
 
         util.stopWatchDomUpdate(_global);
+        util.stopCatchingRequest(_global);
 
         clearInterval(_global.intervalDotTimer);
 

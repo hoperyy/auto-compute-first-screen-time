@@ -27,6 +27,7 @@ function generateApi() {
         }
 
         util.stopWatchDomUpdate(_global);
+        util.stopCatchingRequest(_global);
 
         _global.hasStableFound = true;
 
