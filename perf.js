@@ -79,7 +79,8 @@ function generateApi() {
     // 重操作：记录运行该方法时刻的 dom 信息，主要是 images
     function recordFirstScreenInfo() {
         var startTime =  util.getTime();
-        var firstScreenImages = _getImagesInFirstScreen().map(util.formateUrl);
+        var notFormattedFirstScreenImagesUrl = _getImagesInFirstScreen();
+        var firstScreenImages = notFormattedFirstScreenImagesUrl.map(util.formateUrl);
         var endTime = util.getTime();
         var firstScreenImagesDetail = [];
 
@@ -108,7 +109,7 @@ function generateApi() {
             navigationTagChangeMap: acftGlobal.navigationTagChangeMap
         };
 
-        if (!firstScreenImages.length) {
+        var processNoImages = function() {
             if (/^hand/.test(_global.reportDesc)) {
                 resultObj.firstScreenTimeStamp = _global.handExcuteTime;
                 resultObj.firstScreenTime = _global.handExcuteTime - _global._originalNavStart;
@@ -120,15 +121,66 @@ function generateApi() {
                     _report(resultObj);
                 });
             }
-        } else {
-            var maxFetchTimes = 10;
+        };
+
+        var getByOnload = function() {
+            var count = 0;
+
+            var afterLoad = function(src) {
+                count++;
+
+                var now = new Date().getTime();
+
+                firstScreenImagesDetail.push({
+                    src: src,
+                    responseEnd: now - _global.forcedNavStartTimeStamp,
+                    fetchStart: 'unkown'
+                });
+
+                if (count === firstScreenImages.length) {
+                    resultObj.firstScreenImages = firstScreenImages;
+                    resultObj.firstScreenImagesLength = firstScreenImages.length;
+
+                    resultObj.firstScreenTime = now - _global.forcedNavStartTimeStamp;
+                    resultObj.firstScreenTimeStamp = now + _global._originalNavStart;
+
+                    // 倒序
+                    firstScreenImagesDetail.sort(function (a, b) {
+                        return b.responseEnd - a.responseEnd;
+                    });
+
+                    _report(resultObj);
+                }
+            };
+
+            var protocol = window.location.protocol;
+
+            firstScreenImages.forEach(function(src, index) {
+                var img = new Image();
+
+                img.src = notFormattedFirstScreenImagesUrl[index];
+
+                if (img.complete) {
+                    afterLoad(src);
+                } else {
+                    img.onload = img.onerror = function () {
+                        afterLoad(src);
+                    };
+                }
+            });
+        };
+
+        var cycleGettingPerformaceTime = function() {
+            var maxFetchTimes = 50;
             var fetchCount = 0;
 
-            var getCompleteTime = function () {
+            var getPerformanceTime = function () {
                 var source = performance.getEntries();
                 var matchedLength = 0;
                 var i;
                 var len;
+
+                firstScreenImagesDetail = []; // reset
 
                 // source 去重
                 var filteredSource = [];
@@ -164,7 +216,6 @@ function generateApi() {
                     return b.responseEnd - a.responseEnd;
                 });
 
-                // 如果 source 中有全部的首屏图片信息，则停止定时器并执行性能上报
                 if (matchedLength === firstScreenImages.length) {
                     clearInterval(timer);
 
@@ -184,9 +235,34 @@ function generateApi() {
             };
 
             // 轮询多次获取 performance 信息，直到 performance 信息能够展示首屏资源情况
-            var timer = setInterval(getCompleteTime, 1000);
+            var timer = setInterval(getPerformanceTime, 1000);
 
-            getCompleteTime();
+            getPerformanceTime();
+        };
+
+        var checkUseOnload = function() {
+            return true;
+            for (var i = 0, len = firstScreenImages.length; i < len; i++) {
+                var img = new Image();
+
+                img.src = firstScreenImages[i];
+
+                if (!img.complete) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        if (!firstScreenImages.length) {
+            processNoImages();
+        } else {
+            if (checkUseOnload()) {
+                getByOnload();
+            } else {
+                cycleGettingPerformaceTime();
+            }
         }
 
         return resultObj;

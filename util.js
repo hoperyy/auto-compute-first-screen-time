@@ -5,7 +5,7 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.1.0',
+    version: '5.2.0',
 
     getLastDomUpdateTime: function (_global, callback) {
         // 说明 dom 发生过变化
