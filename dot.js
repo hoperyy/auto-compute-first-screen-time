@@ -170,7 +170,8 @@ function generateApi() {
                 success: true,
                 globalIndex: _global.globalIndex,
                 domChangeList: _global.domChangeList,
-                navigationTagChangeMap: acftGlobal.navigationTagChangeMap
+                navigationTagChangeMap: acftGlobal.navigationTagChangeMap,
+                reportTimeFrom: targetObj.reportTimeFrom
             };
 
             return resultObj;
@@ -454,10 +455,12 @@ function generateApi() {
         if (dotObj.firstScreenImages.length === 0) {
             if (/^hand/.test(_global.reportDesc)) {
                 dotObj.firstScreenTimeStamp = _global.handExcuteTime;
+                dotObj.reportTimeFrom = 'dot-hand-force';
                 _report(dotObj);
             } else {
-                util.getLastDomUpdateTime(_global, function (lastDomUpdateStamp) {
+                util.getLastDomUpdateTime(_global, function (lastDomUpdateStamp, reportTimeFrom) {
                     dotObj.firstScreenTimeStamp = lastDomUpdateStamp;
+                    dotObj.reportTimeFrom = reportTimeFrom;
                     _report(dotObj);
                 });
             }
@@ -465,6 +468,7 @@ function generateApi() {
             var lastImgDownloadDetail = _getLastImgDownloadDetail(_global.dotList[0].firstScreenImages);
             dotObj.firstScreenTimeStamp = lastImgDownloadDetail.loadTimeStamp; // 获取此次打点最后一张图片 onload 的时刻
             dotObj.maxErrorTime = lastImgDownloadDetail.maxErrorTime; // 获取此次打点时最后一张图片 onload 时间的误差值
+            dotObj.reportTimeFrom = 'dot-imgLoad';
             _report(dotObj);
         }
     }

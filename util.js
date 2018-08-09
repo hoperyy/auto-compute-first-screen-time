@@ -5,33 +5,30 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.2.2',
+    version: '5.2.3',
 
     getLastDomUpdateTime: function (_global, callback) {
-        // 说明 dom 发生过变化
-        if (_global.domUpdateTimeStamp) {
-            callback(_global.domUpdateTimeStamp);
+        if (_global._isUsingOriginalNavStart) {
+            console.log('~~~~');
+            var count = 0;
+            var handler = function () {
+                if (performance.timing.domContentLoadedEventStart != 0) {
+                    callback(performance.timing.domContentLoadedEventStart, 'domContentLoadedEventStart');
+                }
+
+                if (++count >= 50 || performance.timing.domContentLoadedEventStart != 0) {
+                    clearInterval(timer);
+                }
+            };
+            // 轮询获取 domComplete 的值，最多轮询 10 次
+            var timer = setInterval(handler, 500);
+
+            handler();   
         } else {
-            // dom 没有发生过变化，这时要区别对待
-            // 如果不是单页应用内部子页面跳转过，则直接取 domContentLoadedEventStart 时刻
-            if (_global._isUsingOriginalNavStart) {
-                var count = 0;
-                var handler = function () {
-                    if (performance.timing.domContentLoadedEventStart != 0) {
-                        callback(performance.timing.domContentLoadedEventStart);
-                    }
-
-                    if (++count >= 10 || performance.timing.domContentLoadedEventStart != 0) {
-                        clearInterval(timer);
-                    }
-                };
-                // 轮询获取 domComplete 的值，最多轮询 10 次
-                var timer = setInterval(handler, 500);
-
-                handler();   
+            if (_global.domUpdateTimeStamp) {
+                callback(_global.domUpdateTimeStamp, 'domUpdateTimeStamp');
             } else {
-                // 如果单页应用内部子页面跳转过，则直接取跳转的时刻
-                callback(_global.forcedNavStartTimeStamp);
+                callback(_global.forcedNavStartTimeStamp, 'forcedNavStartTimeStamp');
             }
         }
     },
@@ -303,7 +300,9 @@ module.exports = {
             scriptLoadingMutationObserver: null,
 
             // 用于拦截 jsonp 请求，js url 匹配该正则时
-            jsonpFilter: /callback=jsonp/
+            jsonpFilter: /callback=jsonp/,
+
+            reportTimeFrom: ''
         }
     },
 

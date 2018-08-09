@@ -106,18 +106,22 @@ function generateApi() {
             url: window.location.href.substring(0, 200),
             globalIndex: _global.globalIndex,
             domChangeList: _global.domChangeList,
-            navigationTagChangeMap: acftGlobal.navigationTagChangeMap
+            navigationTagChangeMap: acftGlobal.navigationTagChangeMap,
+            reportTimeFrom: _global.reportTimeFrom // init，后面还会被赋值
         };
 
         var processNoImages = function() {
             if (/^hand/.test(_global.reportDesc)) {
                 resultObj.firstScreenTimeStamp = _global.handExcuteTime;
                 resultObj.firstScreenTime = _global.handExcuteTime - _global._originalNavStart;
+
+                resultObj.reportTimeFrom = 'perf-hand-force';
                 _report(resultObj);
             } else {
-                util.getLastDomUpdateTime(_global, function (lastDomUpdateStamp) {
+                util.getLastDomUpdateTime(_global, function (lastDomUpdateStamp, reportTimeFrom) {
                     resultObj.firstScreenTimeStamp = lastDomUpdateStamp;
                     resultObj.firstScreenTime = lastDomUpdateStamp - _global._originalNavStart;
+                    resultObj.reportTimeFrom = reportTimeFrom;
                     _report(resultObj);
                 });
             }
@@ -149,6 +153,7 @@ function generateApi() {
                         return b.responseEnd - a.responseEnd;
                     });
 
+                    resultObj.reportTimeFrom = 'perf-imgLoad';
                     _report(resultObj);
                 }
             };
@@ -225,6 +230,7 @@ function generateApi() {
                     resultObj.firstScreenTime = parseInt(firstScreenImagesDetail[0].responseEnd);
                     resultObj.firstScreenTimeStamp = parseInt(firstScreenImagesDetail[0].responseEnd) + _global._originalNavStart;
 
+                    resultObj.reportTimeFrom = 'perf-img-performance';
                     _report(resultObj);
                 }
 
