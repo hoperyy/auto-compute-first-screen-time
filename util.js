@@ -5,9 +5,9 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.2.4',
+    version: '5.3.0',
 
-    getLastDomUpdateTime: function (_global, callback) {
+    getDomReadyTime: function (_global, callback) {
         if (_global._isUsingOriginalNavStart) {
             var count = 0;
             var handler = function () {
@@ -779,5 +779,74 @@ module.exports = {
                 setInterval(checkShouldRunCallback, 250);
             }
         }
+    },
+
+    cycleGettingPerformaceTime: function (_global, firstScreenImages, firstScreenImagesDetail, callback) {
+        var maxFetchTimes = 50;
+        var fetchCount = 0;
+        var formattedFirstScreenImages = firstScreenImages.map(this.formateUrlByRemove);
+        var that = this;
+
+        var getPerformanceTime = function () {
+            var source = performance.getEntries();
+            var matchedLength = 0;
+            var i;
+            var len;
+
+            firstScreenImagesDetail.length = 0; // reset
+
+            // source 去重
+            var filteredSource = [];
+            var sourceMap = {};
+            for (i = 0, len = source.length; i < len; i++) {
+                var sourceItem = source[i];
+                var url = sourceItem.name;
+                if (!sourceMap[url]) {
+                    sourceMap[url] = true;
+                    filteredSource.push(sourceItem);
+                }
+            }
+
+            // 从 source 中找到图片加载信息
+            for (i = 0, len = filteredSource.length; i < len; i++) {
+                var sourceItem = filteredSource[i];
+                var imgUrl = sourceItem.name;
+                if (formattedFirstScreenImages.indexOf(that.formateUrlByRemove(imgUrl)) !== -1) {
+                    matchedLength++;
+
+                    var responseEnd = parseInt(sourceItem.responseEnd);
+                    var fetchStart = parseInt(sourceItem.fetchStart);
+                    firstScreenImagesDetail.push({
+                        src: imgUrl,
+                        responseEnd: responseEnd < 0 ? 0 : responseEnd,
+                        fetchStart: fetchStart < 0 ? 0 : fetchStart
+                    });
+                }
+            }
+
+            // 倒序
+            firstScreenImagesDetail.sort(function (a, b) {
+                return b.responseEnd - a.responseEnd;
+            });
+
+            if (matchedLength === firstScreenImages.length) {
+                clearInterval(timer);
+
+                callback({
+                    firstScreenTime: parseInt(firstScreenImagesDetail[0].responseEnd),
+                    firstScreenTimeStamp: parseInt(firstScreenImagesDetail[0].responseEnd) + _global._originalNavStart
+                });
+            }
+
+            fetchCount++;
+            if (fetchCount >= maxFetchTimes) {
+                clearInterval(timer);
+            }
+        };
+
+        // 轮询多次获取 performance 信息，直到 performance 信息能够展示首屏资源情况
+        var timer = setInterval(getPerformanceTime, 1000);
+
+        getPerformanceTime();
     }
 };

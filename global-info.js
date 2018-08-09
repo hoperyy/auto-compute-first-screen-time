@@ -4,5 +4,6 @@ module.exports = {
         realChangeList: [],
         usedChangeList: []
     },
-    onloadFinished: false
+    onloadFinished: false,
+    supportPerformance: ('performance' in window) && ('getEntriesByType' in window.performance) && (window.performance.getEntriesByType('resource') instanceof Array)
 };

@@ -80,7 +80,6 @@ function generateApi() {
     function recordFirstScreenInfo() {
         var startTime =  util.getTime();
         var firstScreenImages = _getImagesInFirstScreen();
-        var formattedFirstScreenImages = firstScreenImages.map(util.formateUrlByRemove);
         var endTime = util.getTime();
         var firstScreenImagesDetail = [];
 
@@ -97,6 +96,7 @@ function generateApi() {
             delayFirstScreen: endTime - startTime,
             firstScreenTime: -1, // 需要被覆盖的
             firstScreenTimeStamp: -1, // 需要被覆盖的
+            maxErrorTime: 0,
             navigationStartTimeStamp: _global.forcedNavStartTimeStamp,
             navigationStartTime: _global.forcedNavStartTimeStamp - _global._originalNavStart,
             isOriginalNavStart: _global.forcedNavStartTimeStamp === _global._originalNavStart,
@@ -115,10 +115,10 @@ function generateApi() {
                 resultObj.firstScreenTimeStamp = _global.handExcuteTime;
                 resultObj.firstScreenTime = _global.handExcuteTime - _global._originalNavStart;
 
-                resultObj.reportTimeFrom = 'perf-hand-force';
+                resultObj.reportTimeFrom = 'perf-hand-from-force';
                 _report(resultObj);
             } else {
-                util.getLastDomUpdateTime(_global, function (lastDomUpdateStamp, reportTimeFrom) {
+                util.getDomReadyTime(_global, function (lastDomUpdateStamp, reportTimeFrom) {
                     resultObj.firstScreenTimeStamp = lastDomUpdateStamp;
                     resultObj.firstScreenTime = lastDomUpdateStamp - _global._originalNavStart;
                     resultObj.reportTimeFrom = reportTimeFrom;
@@ -153,7 +153,7 @@ function generateApi() {
                         return b.responseEnd - a.responseEnd;
                     });
 
-                    resultObj.reportTimeFrom = 'perf-imgLoad';
+                    resultObj.reportTimeFrom = 'perf-img-from-onload';
                     _report(resultObj);
                 }
             };
@@ -173,77 +173,6 @@ function generateApi() {
                     };
                 }
             });
-        };
-
-        var cycleGettingPerformaceTime = function() {
-            var maxFetchTimes = 50;
-            var fetchCount = 0;
-
-            var getPerformanceTime = function () {
-                var source = performance.getEntries();
-                var matchedLength = 0;
-                var i;
-                var len;
-
-                firstScreenImagesDetail.length = 0; // reset
-
-                // source 去重
-                var filteredSource = [];
-                var sourceMap = {};
-                for (i = 0, len = source.length; i < len; i++) {
-                    var sourceItem = source[i];
-                    var url = sourceItem.name;
-                    if (!sourceMap[url]) {
-                        sourceMap[url] = true;
-                        filteredSource.push(sourceItem);
-                    }
-                }
-
-                // 从 source 中找到图片加载信息
-                for (i = 0, len = filteredSource.length; i < len; i++) {
-                    var sourceItem = filteredSource[i];
-                    var imgUrl = sourceItem.name;
-                    if (formattedFirstScreenImages.indexOf(util.formateUrlByRemove(imgUrl)) !== -1) {
-                        matchedLength++;
-
-                        var responseEnd = parseInt(sourceItem.responseEnd);
-                        var fetchStart = parseInt(sourceItem.fetchStart);
-                        firstScreenImagesDetail.push({
-                            src: imgUrl,
-                            responseEnd: responseEnd < 0 ? 0 : responseEnd,
-                            fetchStart: fetchStart < 0 ? 0 : fetchStart
-                        });
-                    }
-                }
-
-                // 倒序
-                firstScreenImagesDetail.sort(function (a, b) {
-                    return b.responseEnd - a.responseEnd;
-                });
-
-                if (matchedLength === firstScreenImages.length) {
-                    clearInterval(timer);
-
-                    resultObj.firstScreenImages = firstScreenImages;
-                    resultObj.firstScreenImagesLength = firstScreenImages.length;
-
-                    resultObj.firstScreenTime = parseInt(firstScreenImagesDetail[0].responseEnd);
-                    resultObj.firstScreenTimeStamp = parseInt(firstScreenImagesDetail[0].responseEnd) + _global._originalNavStart;
-
-                    resultObj.reportTimeFrom = 'perf-img-performance';
-                    _report(resultObj);
-                }
-
-                fetchCount++;
-                if (fetchCount >= maxFetchTimes) {
-                    clearInterval(timer);
-                }
-            };
-
-            // 轮询多次获取 performance 信息，直到 performance 信息能够展示首屏资源情况
-            var timer = setInterval(getPerformanceTime, 1000);
-
-            getPerformanceTime();
         };
 
         var checkUseOnload = function() {
@@ -266,7 +195,16 @@ function generateApi() {
             if (checkUseOnload()) {
                 getByOnload();
             } else {
-                cycleGettingPerformaceTime();
+                util.cycleGettingPerformaceTime(_global, firstScreenImages, firstScreenImagesDetail, function(performanceResult) {
+                    resultObj.firstScreenImages = firstScreenImages;
+                    resultObj.firstScreenImagesLength = firstScreenImages.length;
+
+                    resultObj.firstScreenTime = performanceResult.firstScreenTime;
+                    resultObj.firstScreenTimeStamp = performanceResult.firstScreenTimeStamp;
+
+                    resultObj.reportTimeFrom = 'perf-img-from-performance';
+                    _report(resultObj);
+                });
             }
         }
 
