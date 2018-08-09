@@ -5,7 +5,7 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.2.1',
+    version: '5.2.2',
 
     getLastDomUpdateTime: function (_global, callback) {
         // 说明 dom 发生过变化
@@ -303,7 +303,7 @@ module.exports = {
             scriptLoadingMutationObserver: null,
 
             // 用于拦截 jsonp 请求，js url 匹配该正则时
-            jsonpFilter: /callback=jsonp\(/
+            jsonpFilter: /callback=jsonp/
         }
     },
 
@@ -532,7 +532,7 @@ module.exports = {
                     if (!requestMap[src]) {
                         requestMap[src] = true;
 
-                        var requestKey = onRequestSend(src, 'script').requestKey;
+                        var requestKey = onRequestSend(src, 'jsonp').requestKey;
 
                         // 超时时间为 3000
                         var timeoutTimer = setTimeout(function () {

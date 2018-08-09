@@ -180,7 +180,7 @@ function generateApi() {
                 var i;
                 var len;
 
-                firstScreenImagesDetail = []; // reset
+                firstScreenImagesDetail.length = 0; // reset
 
                 // source 去重
                 var filteredSource = [];
