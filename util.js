@@ -5,11 +5,10 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.2.3',
+    version: '5.2.4',
 
     getLastDomUpdateTime: function (_global, callback) {
         if (_global._isUsingOriginalNavStart) {
-            console.log('~~~~');
             var count = 0;
             var handler = function () {
                 if (performance.timing.domContentLoadedEventStart != 0) {
