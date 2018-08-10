@@ -5,7 +5,7 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.3.1',
+    version: '5.4.0',
 
     getDomReadyTime: function (_global, callback) {
         if (_global._isUsingOriginalNavStart) {
@@ -781,7 +781,7 @@ module.exports = {
         }
     },
 
-    cycleGettingPerformaceTime: function (_global, firstScreenImages, firstScreenImagesDetail, callback) {
+    cycleGettingPerformaceTime: function (_global, firstScreenImages, callback) {
         var maxFetchTimes = 50;
         var fetchCount = 0;
         var formattedFirstScreenImages = firstScreenImages.map(this.formateUrlByRemove);
@@ -793,7 +793,7 @@ module.exports = {
             var i;
             var len;
 
-            firstScreenImagesDetail.length = 0; // reset
+            var firstScreenImagesDetail = []; // reset
 
             // source 去重
             var filteredSource = [];
@@ -819,7 +819,8 @@ module.exports = {
                     firstScreenImagesDetail.push({
                         src: imgUrl,
                         responseEnd: responseEnd < 0 ? 0 : responseEnd,
-                        fetchStart: fetchStart < 0 ? 0 : fetchStart
+                        fetchStart: fetchStart < 0 ? 0 : fetchStart,
+                        from: 'performance'
                     });
                 }
             }
@@ -834,7 +835,8 @@ module.exports = {
 
                 callback({
                     firstScreenTime: parseInt(firstScreenImagesDetail[0].responseEnd),
-                    firstScreenTimeStamp: parseInt(firstScreenImagesDetail[0].responseEnd) + _global._originalNavStart
+                    firstScreenTimeStamp: parseInt(firstScreenImagesDetail[0].responseEnd) + _global._originalNavStart,
+                    firstScreenImagesDetail: firstScreenImagesDetail
                 });
             }
 
@@ -849,9 +851,10 @@ module.exports = {
 
         getPerformanceTime();
     },
-    getByOnload: function (_global, firstScreenImages, firstScreenImagesDetail, callback) {
+    getByOnload: function (_global, firstScreenImages, callback, getFromPerformance) {
         var count = 0;
         var that = this;
+        var firstScreenImagesDetail = [];
 
         var afterLoad = function (src, loadType) {
             count++;
@@ -873,12 +876,15 @@ module.exports = {
 
                 callback({
                     firstScreenTime: now - _global.forcedNavStartTimeStamp,
-                    firstScreenTimeStamp: now + _global._originalNavStart
+                    firstScreenTimeStamp: now + _global._originalNavStart,
+                    firstScreenImagesDetail: firstScreenImagesDetail
                 });
             }
         };
 
         var protocol = window.location.protocol;
+
+        var shouldGetFromPerformance = true;
 
         firstScreenImages.forEach(function (src) {
             var img = new Image();
@@ -888,23 +894,15 @@ module.exports = {
             if (img.complete) {
                 afterLoad(src, 'complete');
             } else {
+                shouldGetFromPerformance = false;
                 img.onload = img.onerror = function () {
                     afterLoad(src, 'onload');
                 };
             }
         });
-    },
-    allImagesComplete: function (firstScreenImages) {
-        for (var i = 0, len = firstScreenImages.length; i < len; i++) {
-            var img = new Image();
 
-            img.src = this.formateUrlByAdd(firstScreenImages[i]);
-
-            if (!img.complete) {
-                return true;
-            }
+        if (shouldGetFromPerformance) {
+            getFromPerformance();
         }
-
-        return false;
     }
 };

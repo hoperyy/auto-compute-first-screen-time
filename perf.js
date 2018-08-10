@@ -118,9 +118,9 @@ function generateApi() {
                 resultObj.reportTimeFrom = 'perf-hand-from-force';
                 _report(resultObj);
             } else {
-                util.getDomReadyTime(_global, function (lastDomUpdateStamp, reportTimeFrom) {
-                    resultObj.firstScreenTimeStamp = lastDomUpdateStamp;
-                    resultObj.firstScreenTime = lastDomUpdateStamp - _global._originalNavStart;
+                util.getDomReadyTime(_global, function (domReadyTimeStamp, reportTimeFrom) {
+                    resultObj.firstScreenTimeStamp = domReadyTimeStamp;
+                    resultObj.firstScreenTime = domReadyTimeStamp - _global._originalNavStart;
                     resultObj.reportTimeFrom = reportTimeFrom;
                     _report(resultObj);
                 });
@@ -133,25 +133,21 @@ function generateApi() {
         if (!firstScreenImages.length) {
             processNoImages();
         } else {
-            if (!util.allImagesComplete(firstScreenImages)) {
-                util.getByOnload(_global, firstScreenImages, firstScreenImagesDetail, function (imgOnLoadResult) {
-                    console.log('from perf image onload');
-                    resultObj.firstScreenTime = imgOnLoadResult.firstScreenTime;
-                    resultObj.firstScreenTimeStamp = imgOnLoadResult.firstScreenTimeStamp;
-
-                    resultObj.reportTimeFrom = 'perf-img-from-onload';
-                    _report(resultObj);
-                });
-            } else {
-                util.cycleGettingPerformaceTime(_global, firstScreenImages, firstScreenImagesDetail, function(performanceResult) {
-                    console.log('from perf image performance');
+            util.getByOnload(_global, firstScreenImages, function (imgOnLoadResult) {
+                resultObj.firstScreenTime = imgOnLoadResult.firstScreenTime;
+                resultObj.firstScreenTimeStamp = imgOnLoadResult.firstScreenTimeStamp;
+                resultObj.firstScreenImagesDetail = imgOnLoadResult.firstScreenImagesDetail;
+                resultObj.reportTimeFrom = 'perf-img-from-onload';
+                _report(resultObj);
+            }, function() {
+                util.cycleGettingPerformaceTime(_global, firstScreenImages, function (performanceResult) {
                     resultObj.firstScreenTime = performanceResult.firstScreenTime;
                     resultObj.firstScreenTimeStamp = performanceResult.firstScreenTimeStamp;
-
+                    resultObj.firstScreenImagesDetail = performanceResult.firstScreenImagesDetail;
                     resultObj.reportTimeFrom = 'perf-img-from-performance';
                     _report(resultObj);
                 });
-            }
+            });
         }
 
         return resultObj;
