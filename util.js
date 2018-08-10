@@ -5,7 +5,7 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.3.0',
+    version: '5.3.1',
 
     getDomReadyTime: function (_global, callback) {
         if (_global._isUsingOriginalNavStart) {
@@ -848,5 +848,63 @@ module.exports = {
         var timer = setInterval(getPerformanceTime, 1000);
 
         getPerformanceTime();
+    },
+    getByOnload: function (_global, firstScreenImages, firstScreenImagesDetail, callback) {
+        var count = 0;
+        var that = this;
+
+        var afterLoad = function (src, loadType) {
+            count++;
+
+            var now = new Date().getTime();
+
+            firstScreenImagesDetail.push({
+                src: src,
+                responseEnd: now - _global.forcedNavStartTimeStamp,
+                fetchStart: 'unkown',
+                type: loadType
+            });
+
+            if (count === firstScreenImages.length) {
+                // 倒序
+                firstScreenImagesDetail.sort(function (a, b) {
+                    return b.responseEnd - a.responseEnd;
+                });
+
+                callback({
+                    firstScreenTime: now - _global.forcedNavStartTimeStamp,
+                    firstScreenTimeStamp: now + _global._originalNavStart
+                });
+            }
+        };
+
+        var protocol = window.location.protocol;
+
+        firstScreenImages.forEach(function (src) {
+            var img = new Image();
+
+            img.src = that.formateUrlByAdd(src);
+
+            if (img.complete) {
+                afterLoad(src, 'complete');
+            } else {
+                img.onload = img.onerror = function () {
+                    afterLoad(src, 'onload');
+                };
+            }
+        });
+    },
+    allImagesComplete: function (firstScreenImages) {
+        for (var i = 0, len = firstScreenImages.length; i < len; i++) {
+            var img = new Image();
+
+            img.src = this.formateUrlByAdd(firstScreenImages[i]);
+
+            if (!img.complete) {
+                return true;
+            }
+        }
+
+        return false;
     }
 };

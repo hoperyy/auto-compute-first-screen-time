@@ -127,78 +127,24 @@ function generateApi() {
             }
         };
 
-        var getByOnload = function() {
-            var count = 0;
-
-            var afterLoad = function(src) {
-                count++;
-
-                var now = new Date().getTime();
-
-                firstScreenImagesDetail.push({
-                    src: src,
-                    responseEnd: now - _global.forcedNavStartTimeStamp,
-                    fetchStart: 'unkown'
-                });
-
-                if (count === firstScreenImages.length) {
-                    resultObj.firstScreenImages = firstScreenImages;
-                    resultObj.firstScreenImagesLength = firstScreenImages.length;
-
-                    resultObj.firstScreenTime = now - _global.forcedNavStartTimeStamp;
-                    resultObj.firstScreenTimeStamp = now + _global._originalNavStart;
-
-                    // 倒序
-                    firstScreenImagesDetail.sort(function (a, b) {
-                        return b.responseEnd - a.responseEnd;
-                    });
-
-                    resultObj.reportTimeFrom = 'perf-img-from-onload';
-                    _report(resultObj);
-                }
-            };
-
-            var protocol = window.location.protocol;
-
-            firstScreenImages.forEach(function(src) {
-                var img = new Image();
-
-                img.src = util.formateUrlByAdd(src);
-
-                if (img.complete) {
-                    afterLoad(src);
-                } else {
-                    img.onload = img.onerror = function () {
-                        afterLoad(src);
-                    };
-                }
-            });
-        };
-
-        var checkUseOnload = function() {
-            for (var i = 0, len = firstScreenImages.length; i < len; i++) {
-                var img = new Image();
-
-                img.src = util.formateUrlByAdd(firstScreenImages[i]);
-
-                if (!img.complete) {
-                    return true;
-                }
-            }
-
-            return false;
-        };
+        resultObj.firstScreenImages = firstScreenImages;
+        resultObj.firstScreenImagesLength = firstScreenImages.length;
 
         if (!firstScreenImages.length) {
             processNoImages();
         } else {
-            if (checkUseOnload()) {
-                getByOnload();
+            if (!util.allImagesComplete(firstScreenImages)) {
+                util.getByOnload(_global, firstScreenImages, firstScreenImagesDetail, function (imgOnLoadResult) {
+                    console.log('from perf image onload');
+                    resultObj.firstScreenTime = imgOnLoadResult.firstScreenTime;
+                    resultObj.firstScreenTimeStamp = imgOnLoadResult.firstScreenTimeStamp;
+
+                    resultObj.reportTimeFrom = 'perf-img-from-onload';
+                    _report(resultObj);
+                });
             } else {
                 util.cycleGettingPerformaceTime(_global, firstScreenImages, firstScreenImagesDetail, function(performanceResult) {
-                    resultObj.firstScreenImages = firstScreenImages;
-                    resultObj.firstScreenImagesLength = firstScreenImages.length;
-
+                    console.log('from perf image performance');
                     resultObj.firstScreenTime = performanceResult.firstScreenTime;
                     resultObj.firstScreenTimeStamp = performanceResult.firstScreenTimeStamp;
 
