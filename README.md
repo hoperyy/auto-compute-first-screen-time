@@ -22,13 +22,23 @@ The distance between average tested time and real first screen time is `+(0 ~ 25
 
 ## How To Use
 
+`auto-compute-first-screen-time` use libaray of `umd`.
+
+So, you can use it by:
+
++   `<script src="./auto-compute-first-screen-time/dist/index.js"></script>`
+
+    `var autoComputeFirstScreenTime = window.autoComputeFirstScreenTime`.
+
++   `var autoComputeFirstScreenTime = require('auto-compute-first-screen-time');`
+
+And then use it:
+
 +   compute first screen time automatically
 
     Run this code before the scripts of page running.
 
     ```javascript
-    var autoComputeFirstScreenTime = require('auto-compute-first-screen-time');
-    
     autoComputeFirstScreenTime({
         onReport: function (result) {
             if (result.success) {
@@ -46,8 +56,6 @@ The distance between average tested time and real first screen time is `+(0 ~ 25
 +   compute first screen time by hand when you find it ready
 
     ```javascript
-    var autoComputeFirstScreenTime = require('auto-compute-first-screen-time');
-
     autoComputeFirstScreenTime.report({
         // required: false
         onReport: function (result) {
