@@ -1,10 +1,11 @@
 {
   "name": "auto-compute-first-screen-time",
-  "version": "5.4.0",
+  "version": "5.4.1",
   "description": "A tool for auto computing first screen time of one page.",
   "main": "index.js",
   "scripts": {
-    "push": "git add . && git commit -m 'update' && git push origin master && exit 0"
+    "build": "cross-env NODE_ENV=production webpack --config ./build/webpack.config.js",
+    "dev": "cross-env NODE_ENV=development webpack --config ./build/webpack.config.js & http-server & open 'http://localhost:8080/test/'"
   },
   "repository": {
     "type": "git",
@@ -15,5 +16,11 @@
   "bugs": {
     "url": "https://github.com/hoperyy/auto-first-screen-time/issues"
   },
-  "homepage": "https://github.com/hoperyy/auto-first-screen-time#readme"
+  "homepage": "https://github.com/hoperyy/auto-first-screen-time#readme",
+  "devDependencies": {
+    "cross-env": "^5.2.0",
+    "http-server": "^0.11.1",
+    "webpack": "^4.16.5",
+    "webpack-command": "^0.4.1"
+  }
 }
