@@ -79,7 +79,7 @@ And then use it:
 
             ```javascript
             onReport: function (result) {
-                // black function
+                // blank function
             }
             ```
 
