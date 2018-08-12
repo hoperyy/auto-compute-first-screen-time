@@ -135,7 +135,7 @@ And then use it:
     +   `options.jsonpFilter`
 
         +   type: `RegExp`
-        +   default: `/jsonp=callback\(/`
+        +   default: `/jsonp=callback/`
         +   description
 
             Fiter for cathing jsonp request.
