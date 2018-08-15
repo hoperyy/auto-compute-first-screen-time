@@ -5,7 +5,7 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.4.2',
+    version: '5.4.3',
 
     getDomReadyTime: function (_global, callback) {
         if (_global._isUsingOriginalNavStart) {
@@ -852,13 +852,10 @@ module.exports = {
         getPerformanceTime();
     },
     getByOnload: function (_global, firstScreenImages, callback, getFromPerformance) {
-        var afterLoadCount = 0;
         var that = this;
         var firstScreenImagesDetail = [];
 
         var afterLoad = function (src, loadType) {
-            afterLoadCount++;
-
             var now = new Date().getTime();
 
             firstScreenImagesDetail.push({
@@ -867,43 +864,42 @@ module.exports = {
                 fetchStart: 'unkown',
                 type: loadType
             });
-
-            if (afterLoadCount === firstScreenImages.length) {
-                // 倒序
-                firstScreenImagesDetail.sort(function (a, b) {
-                    return b.responseEnd - a.responseEnd;
-                });
-
-                callback({
-                    firstScreenTime: now - _global.forcedNavStartTimeStamp,
-                    firstScreenTimeStamp: now + _global._originalNavStart,
-                    firstScreenImagesDetail: firstScreenImagesDetail
-                });
-            }
         };
 
         var protocol = window.location.protocol;
 
         var shouldGetFromPerformance = true;
 
-        var imgCount = 0;
+        var count = 0;
         firstScreenImages.forEach(function (src) {
             var img = new Image();
 
             img.src = that.formateUrlByAdd(src);
 
-            imgCount++;
-
             if (img.complete) {
+                count++;
                 afterLoad(src, 'complete');
-
-                if (imgCount === firstScreenImages.length) {
-                    shouldGetFromPerformance = false;
-                }
             } else {
                 shouldGetFromPerformance = false;
+
                 img.onload = img.onerror = function () {
+                    count++;
                     afterLoad(src, 'onload');
+
+                    if (count === firstScreenImages.length) {
+                        var now = new Date().getTime();
+                        
+                        // 倒序
+                        firstScreenImagesDetail.sort(function (a, b) {
+                            return b.responseEnd - a.responseEnd;
+                        });
+
+                        callback({
+                            firstScreenTime: now - _global.forcedNavStartTimeStamp,
+                            firstScreenTimeStamp: now + _global._originalNavStart,
+                            firstScreenImagesDetail: firstScreenImagesDetail
+                        });
+                    }
                 };
             }
         });
