@@ -774,7 +774,7 @@ module.exports = {
 
             if (MutationObserver) {
                 var observer = new MutationObserver(function (mutations, observer) {
-                    that.forEach(mutations, function (mutation) {
+                    that.forEach(mutations, function (mutation, index) {
                         if (_lanchGlobal.navigationStartChangeTag.indexOf(mutation.attributeName) !== -1) {
                             checkShouldRunCallback();
                         }
