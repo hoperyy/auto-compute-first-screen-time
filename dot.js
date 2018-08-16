@@ -270,7 +270,7 @@ function generateApi() {
                 }
             };
 
-            firstScreenImages.forEach(function (src) {
+            util.forEach(firstScreenImages, function (src) {
                 if (_global.imgMap[src]) {
                     afterDownload(src);
                 } else {
@@ -463,7 +463,7 @@ function generateApi() {
             var _getLastImgDownloadDetailFromDot = function(images) {
                 var timeArr = [];
 
-                images.forEach(function (src) {
+                util.forEach(images, function (src) {
                     timeArr.push(_global.imgMap[src]);
                 });
 

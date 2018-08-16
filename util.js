@@ -5,7 +5,7 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.4.3',
+    version: '5.4.4',
 
     getDomReadyTime: function (_global, callback) {
         if (_global._isUsingOriginalNavStart) {
@@ -126,14 +126,14 @@ module.exports = {
         return false;
     },
     queryAllNode: function (ignoreTag) {
-        var _this = this;
+        var that = this;
 
         var result = document.createNodeIterator(
             document.body,
             NodeFilter.SHOW_ELEMENT,
             function (node) {
                 // 判断该元素及其父元素是否是需要忽略的元素
-                if (!_this._shouldIgnoreNode(node, ignoreTag)) {
+                if (!that._shouldIgnoreNode(node, ignoreTag)) {
                     return NodeFilter.FILTER_ACCEPT;
                 }
             }
@@ -318,8 +318,16 @@ module.exports = {
         return defaultGlobal;
     },
 
+    forEach: function(arr, callback) {
+        if (typeof arr === 'object' && arr.length) {
+            for (var i = 0, len = arr.length; i < len; i++) {
+                callback(arr[i], i);
+            }
+        }
+    },
+
     overrideRequest: function (_global, onStable) {
-        var _this = this;
+        var that = this;
         var requestTimerStatusPool = {};
 
         // 用于统计 js 请求（不含 jsonp）
@@ -353,7 +361,7 @@ module.exports = {
                 shouldCatch = false;
             }
 
-            var sendTime = _this.getTime();
+            var sendTime = that.getTime();
 
             // 如果发送数据请求的时间点在时间窗口内，则认为该抓取该请求到队列，主要抓取串联型请求
             for (var sectionIndex = 0; sectionIndex < _global.catchRequestTimeSections.length; sectionIndex++) {
@@ -398,7 +406,7 @@ module.exports = {
                 _global.isFirstRequestSent = true;
             }
 
-            var requestKey = url + '>time:' + _this.getTime();
+            var requestKey = url + '>time:' + that.getTime();
             ensureRequestDetail(requestKey);
 
             _global.requestDetails[requestKey].status = 'sent';
@@ -413,7 +421,7 @@ module.exports = {
 
         var afterRequestReturn = function (requestKey) {
             //  当前时刻
-            var returnTime = _this.getTime();
+            var returnTime = that.getTime();
 
             ensureRequestDetail(requestKey);
 
@@ -462,7 +470,7 @@ module.exports = {
                 // ensure Promise exists. If not, skip cathing request
                 var oldFetch = window.fetch;
                 window.fetch = function () {
-                    var _this = this;
+                    var that = this;
                     var args = arguments;
 
                     return new Promise(function (resolve, reject) {
@@ -481,7 +489,7 @@ module.exports = {
                             requestKey = onRequestSend(url, 'fetch').requestKey;
                         }
 
-                        oldFetch.apply(_this, args).then(function (response) {
+                        oldFetch.apply(that, args).then(function (response) {
                             if (requestKey) {
                                 afterRequestReturn(requestKey);
                             }
@@ -572,9 +580,9 @@ module.exports = {
 
                 if (MutationObserver) {
                     _global.scriptLoadingMutationObserver = new MutationObserver(function (mutations, observer) {
-                        mutations.forEach(function (mutation) {
+                        that.forEach(mutations, function (mutation) {
                             if (mutation.addedNodes) {
-                                mutation.addedNodes.forEach(function (addedNode) {
+                                that.forEach(mutation.addedNodes, function (addedNode) {
                                     addLoadWatcher(addedNode);
                                 });
                             }
@@ -693,6 +701,8 @@ module.exports = {
     },
 
     onNavigationStartChange: function (_lanchGlobal, callback) {
+        var that = this;
+
         if (_lanchGlobal.watchPerfStartChange && !acftGlobal.watchingNavStartChange) {
             acftGlobal.watchingNavStartChange = true; // 一个页面，只允许一个观察者
 
@@ -764,7 +774,7 @@ module.exports = {
 
             if (MutationObserver) {
                 var observer = new MutationObserver(function (mutations, observer) {
-                    mutations.forEach(function (mutation) {
+                    that.forEach(mutations, function (mutation) {
                         if (_lanchGlobal.navigationStartChangeTag.indexOf(mutation.attributeName) !== -1) {
                             checkShouldRunCallback();
                         }
@@ -871,7 +881,7 @@ module.exports = {
         var shouldGetFromPerformance = true;
 
         var count = 0;
-        firstScreenImages.forEach(function (src) {
+        that.forEach(firstScreenImages, function (src) {
             var img = new Image();
 
             img.src = that.formateUrlByAdd(src);
