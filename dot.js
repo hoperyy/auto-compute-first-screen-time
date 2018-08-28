@@ -275,7 +275,7 @@ function generateApi() {
                     afterDownload(src);
                 } else {
                     var img = new Image();
-                    img.src = util.formateUrlByAdd(src);
+                    img.src = src;
 
                     if (img.complete) {
                         // 记录该图片加载完成的时间，以最早那次为准
@@ -369,7 +369,8 @@ function generateApi() {
             currentNode = nodeIterator.nextNode();
         }
 
-        return imgList;
+        // 格式化
+        return util.formateUrlList(imgList);
     }
 
     function onStopObserving() {

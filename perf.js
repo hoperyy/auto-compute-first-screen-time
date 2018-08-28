@@ -207,7 +207,8 @@ function generateApi() {
             currentNode = nodeIterator.nextNode();
         }
 
-        return imgList;
+        // 格式化
+        return util.formateUrlList(imgList);
     }
 
     // 插入脚本，用于获取脚本运行完成时间，这个时间用于获取当前页面是否有异步请求发出

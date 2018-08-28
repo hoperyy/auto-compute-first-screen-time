@@ -197,20 +197,35 @@ module.exports = {
         return requests;
     },
 
-    formateUrlByRemove: function (url) {
+    _formateUrlByRemove: function (url) {
         return url.replace(/^http(s)?\:/, '').replace(/^\/\//, '');
     },
 
-    formateUrlByAdd: function (url) {
-        if (/^http/.test(url)) {
-            return url;
+    _formateUrlByAdd: function (url) {
+        // if (/^http/.test(url)) {
+        //     return url;
+        // }
+
+        // if (/^\/\//.test(url)) {
+        //     return window.location.protocol + url;
+        // }
+
+        return window.location.protocol + '//' + this._formateUrlByRemove(url);
+    },
+
+    formateUrlList: function(list) {
+        var formattedList = [];
+        var formattedUrl;
+
+        for (var i = 0, length = list.length; i < length; i++) {
+            formattedUrl = this._formateUrlByAdd(list[i]);
+            // 去重
+            if (formattedList.indexOf(formattedUrl) === -1) {
+                formattedList.push(formattedUrl);
+            }
         }
 
-        if (/^\/\//.test(url)) {
-            return window.location.protocol + url;
-        }
-
-        return window.location.protocol + '//' + url;
+        return formattedList;
     },
 
     initGlobal: function () {
@@ -794,7 +809,7 @@ module.exports = {
     cycleGettingPerformaceTime: function (_global, firstScreenImages, callback) {
         var maxFetchTimes = 50;
         var fetchCount = 0;
-        var formattedFirstScreenImages = firstScreenImages.map(this.formateUrlByRemove);
+
         var that = this;
 
         var getPerformanceTime = function () {
@@ -820,8 +835,9 @@ module.exports = {
             // 从 source 中找到图片加载信息
             for (i = 0, len = filteredSource.length; i < len; i++) {
                 var sourceItem = filteredSource[i];
-                var imgUrl = sourceItem.name;
-                if (formattedFirstScreenImages.indexOf(that.formateUrlByRemove(imgUrl)) !== -1) {
+                var imgUrl = that._formateUrlByAdd(sourceItem.name);
+
+                if (firstScreenImages.indexOf(imgUrl) !== -1) {
                     matchedLength++;
 
                     var responseEnd = parseInt(sourceItem.responseEnd);
@@ -876,34 +892,17 @@ module.exports = {
             });
         };
 
-        var protocol = window.location.protocol;
-
         var shouldGetFromPerformance = true;
 
         var count = 0;
         that.forEach(firstScreenImages, function (src) {
             var img = new Image();
 
-            img.src = that.formateUrlByAdd(src);
+            img.src = src;
 
             if (img.complete) {
                 count++;
                 afterLoad(src, 'complete');
-                
-                if (count === firstScreenImages.length) {
-                    var now = new Date().getTime();
-
-                    // 倒序
-                    firstScreenImagesDetail.sort(function (a, b) {
-                        return b.responseEnd - a.responseEnd;
-                    });
-
-                    callback({
-                        firstScreenTime: now - _global.forcedNavStartTimeStamp,
-                        firstScreenTimeStamp: now + _global._originalNavStart,
-                        firstScreenImagesDetail: firstScreenImagesDetail
-                    });
-                }
             } else {
                 shouldGetFromPerformance = false;
 
