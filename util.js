@@ -889,6 +889,21 @@ module.exports = {
             if (img.complete) {
                 count++;
                 afterLoad(src, 'complete');
+                
+                if (count === firstScreenImages.length) {
+                    var now = new Date().getTime();
+
+                    // 倒序
+                    firstScreenImagesDetail.sort(function (a, b) {
+                        return b.responseEnd - a.responseEnd;
+                    });
+
+                    callback({
+                        firstScreenTime: now - _global.forcedNavStartTimeStamp,
+                        firstScreenTimeStamp: now + _global._originalNavStart,
+                        firstScreenImagesDetail: firstScreenImagesDetail
+                    });
+                }
             } else {
                 shouldGetFromPerformance = false;
 
