@@ -133,20 +133,12 @@ function generateApi() {
         if (!firstScreenImages.length) {
             processNoImages();
         } else {
-            util.getByOnload(_global, firstScreenImages, function (imgOnLoadResult) {
-                resultObj.firstScreenTime = imgOnLoadResult.firstScreenTime;
-                resultObj.firstScreenTimeStamp = imgOnLoadResult.firstScreenTimeStamp;
-                resultObj.firstScreenImagesDetail = imgOnLoadResult.firstScreenImagesDetail;
-                resultObj.reportTimeFrom = 'perf-img-from-onload';
+            util.cycleGettingPerformaceTime(_global, firstScreenImages, function (performanceResult) {
+                resultObj.firstScreenTime = performanceResult.firstScreenTime;
+                resultObj.firstScreenTimeStamp = performanceResult.firstScreenTimeStamp;
+                resultObj.firstScreenImagesDetail = performanceResult.firstScreenImagesDetail;
+                resultObj.reportTimeFrom = 'perf-img-from-performance';
                 _report(resultObj);
-            }, function() {
-                util.cycleGettingPerformaceTime(_global, firstScreenImages, function (performanceResult) {
-                    resultObj.firstScreenTime = performanceResult.firstScreenTime;
-                    resultObj.firstScreenTimeStamp = performanceResult.firstScreenTimeStamp;
-                    resultObj.firstScreenImagesDetail = performanceResult.firstScreenImagesDetail;
-                    resultObj.reportTimeFrom = 'perf-img-from-performance';
-                    _report(resultObj);
-                });
             });
         }
 

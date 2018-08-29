@@ -5,7 +5,7 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.4.7',
+    version: '5.4.8',
 
     getDomReadyTime: function (_global, callback) {
         if (_global._isUsingOriginalNavStart) {
@@ -806,57 +806,95 @@ module.exports = {
         }
     },
 
-    cycleGettingPerformaceTime: function (_global, firstScreenImages, callback) {
-        var maxFetchTimes = 50;
-        var fetchCount = 0;
+    _getUnuniqueDetailFromSource: function(source, firstScreenImages) {
+        var ununiqueDetail = [];
+        var that = this;
 
+        // 从 source 中找到图片加载信息
+        for (var i = 0, len = source.length; i < len; i++) {
+            var sourceItem = source[i];
+            var imgUrl = that._formateUrlByAdd(sourceItem.name);
+
+            if (firstScreenImages.indexOf(imgUrl) !== -1) {
+                var responseEnd = parseInt(sourceItem.responseEnd);
+                var fetchStart = parseInt(sourceItem.fetchStart);
+                ununiqueDetail.push({
+                    src: imgUrl,
+                    responseEnd: responseEnd < 0 ? 0 : responseEnd,
+                    fetchStart: fetchStart < 0 ? 0 : fetchStart,
+                    from: 'performance'
+                });
+            }
+        }
+
+        return ununiqueDetail;
+    },
+
+    _getSrcMapFromUnuniqueDetail: function(ununiqueDetail) {
+        var srcMap = {};
+        var that = this;
+
+        that.forEach(ununiqueDetail, function(detailItem, detailIndex) {
+            var imgUrl = detailItem.src;
+            var key = 'imgUrl-' + imgUrl;
+
+            if (!srcMap[key]) {
+                srcMap[key] = [];
+            }
+
+            srcMap[key].push(detailIndex);
+        });
+
+        return srcMap;
+    },
+
+    _getUniquedFirstScreenDetail: function(ununiqueDetail, srcMap) {
+        var firstScreenImagesDetail = [];
+        var that = this;
+
+        // 遍历 srcMap 
+        for (var srcMapKey in srcMap) {
+            if (/^imgUrl\-/.test(srcMapKey)) { // 避免原型链上的属性污染
+                var indexs = srcMap[srcMapKey];
+                if (indexs.length == 1) {
+                    firstScreenImagesDetail.push(ununiqueDetail[indexs[0]]);
+                } else if (indexs.length > 1) {
+                    var target = ununiqueDetail[indexs[0]]; // 默认值
+                    that.forEach(indexs, function(ununiqueDetailIndex) {
+                        if (ununiqueDetail[ununiqueDetailIndex].responseEnd < target.responseEnd) {
+                            target = ununiqueDetail[ununiqueDetailIndex];
+                        }
+                    });
+
+                    firstScreenImagesDetail.push(target);
+                }
+            }
+        }
+
+        return firstScreenImagesDetail;
+    },
+
+    cycleGettingPerformaceTime: function (_global, firstScreenImages, callback) {
+        var fetchCount = 50;
         var that = this;
 
         var getPerformanceTime = function () {
             var source = performance.getEntries();
-            var matchedLength = 0;
-            var i;
-            var len;
 
-            var firstScreenImagesDetail = []; // reset
+            var ununiqueDetail = that._getUnuniqueDetailFromSource(source, firstScreenImages);
+            var firstScreenImagesDetail = [];
 
-            // source 去重
-            var filteredSource = [];
-            var sourceMap = {};
-            for (i = 0, len = source.length; i < len; i++) {
-                var sourceItem = source[i];
-                var url = sourceItem.name;
-                if (!sourceMap[url]) {
-                    sourceMap[url] = true;
-                    filteredSource.push(sourceItem);
-                }
-            }
+            // 遍历 ununiqueDetail 得到 srcMap： { src: [0, 1] }
+            var srcMap = that._getSrcMapFromUnuniqueDetail(ununiqueDetail);
 
-            // 从 source 中找到图片加载信息
-            for (i = 0, len = filteredSource.length; i < len; i++) {
-                var sourceItem = filteredSource[i];
-                var imgUrl = that._formateUrlByAdd(sourceItem.name);
-
-                if (firstScreenImages.indexOf(imgUrl) !== -1) {
-                    matchedLength++;
-
-                    var responseEnd = parseInt(sourceItem.responseEnd);
-                    var fetchStart = parseInt(sourceItem.fetchStart);
-                    firstScreenImagesDetail.push({
-                        src: imgUrl,
-                        responseEnd: responseEnd < 0 ? 0 : responseEnd,
-                        fetchStart: fetchStart < 0 ? 0 : fetchStart,
-                        from: 'performance'
-                    });
-                }
-            }
+            var firstScreenImagesDetail = that._getUniquedFirstScreenDetail(ununiqueDetail, srcMap);
 
             // 倒序
             firstScreenImagesDetail.sort(function (a, b) {
                 return b.responseEnd - a.responseEnd;
             });
 
-            if (matchedLength === firstScreenImages.length) {
+            if (firstScreenImagesDetail.length === firstScreenImages.length) {
                 clearInterval(timer);
 
                 callback({
@@ -866,8 +904,8 @@ module.exports = {
                 });
             }
 
-            fetchCount++;
-            if (fetchCount >= maxFetchTimes) {
+            fetchCount--;
+            if (fetchCount <= 0) {
                 clearInterval(timer);
             }
         };
@@ -876,60 +914,5 @@ module.exports = {
         var timer = setInterval(getPerformanceTime, 1000);
 
         getPerformanceTime();
-    },
-    getByOnload: function (_global, firstScreenImages, callback, getFromPerformance) {
-        var that = this;
-        var firstScreenImagesDetail = [];
-
-        var afterLoad = function (src, loadType) {
-            var now = new Date().getTime();
-
-            firstScreenImagesDetail.push({
-                src: src,
-                responseEnd: now - _global.forcedNavStartTimeStamp,
-                fetchStart: 'unkown',
-                type: loadType
-            });
-        };
-
-        var shouldGetFromPerformance = true;
-
-        var count = 0;
-        that.forEach(firstScreenImages, function (src) {
-            var img = new Image();
-
-            img.src = src;
-
-            if (img.complete) {
-                count++;
-                afterLoad(src, 'complete');
-            } else {
-                shouldGetFromPerformance = false;
-
-                img.onload = img.onerror = function () {
-                    count++;
-                    afterLoad(src, 'onload');
-
-                    if (count === firstScreenImages.length) {
-                        var now = new Date().getTime();
-                        
-                        // 倒序
-                        firstScreenImagesDetail.sort(function (a, b) {
-                            return b.responseEnd - a.responseEnd;
-                        });
-
-                        callback({
-                            firstScreenTime: now - _global.forcedNavStartTimeStamp,
-                            firstScreenTimeStamp: now + _global._originalNavStart,
-                            firstScreenImagesDetail: firstScreenImagesDetail
-                        });
-                    }
-                };
-            }
-        });
-
-        if (shouldGetFromPerformance) {
-            getFromPerformance();
-        }
     }
 };

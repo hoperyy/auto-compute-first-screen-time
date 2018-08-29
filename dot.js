@@ -251,7 +251,7 @@ function generateApi() {
             dotObj.finished = true;
         } else {
             var imgIndex = 0;
-            var afterDownload = function (src) {
+            var checkFinished = function (src) {
                 imgIndex++;
 
                 // 如果当前打点处，所有图片均已加载完毕，标记该打点已经完成
@@ -272,11 +272,12 @@ function generateApi() {
 
             util.forEach(firstScreenImages, function (src) {
                 if (_global.imgMap[src]) {
-                    afterDownload(src);
+                    checkFinished(src);
                 } else {
                     var img = new Image();
                     img.src = src;
 
+                    // 浏览器支持 img.complete 且 img.complete 为 true，优先使用该属性
                     if (img.complete) {
                         // 记录该图片加载完成的时间，以最早那次为准
                         if (!_global.imgMap[src]) {
@@ -286,8 +287,9 @@ function generateApi() {
                                 type: 'complete'
                             });
                         }
-                        afterDownload(src);
+                        checkFinished(src);
                     } else {
+                        // img.complete 不为 true（可能浏览器不支持或值为 false），使用 onload 模拟，有误差
                         img.onload = img.onerror = function () {
                             // 记录该图片加载完成的时间，以最早那次为准
                             if (!_global.imgMap[src]) {
@@ -296,7 +298,7 @@ function generateApi() {
                                     type: 'onload'
                                 });
                             }
-                            afterDownload(src);
+                            checkFinished(src);
                         };
                     }
                 }
