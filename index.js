@@ -7,6 +7,29 @@
 var supportQuerySelector = !!document.querySelector;
 var supportPerformance = ('performance' in window) && ('getEntriesByType' in window.performance) && (window.performance.getEntriesByType('resource') instanceof Array);
 var supportTiming = window.performance && window.performance.timing;
+var supportNecessaryJsApis = (function(){
+    var supportForin = true;
+    try {
+        var isAin = false;
+        var isBin = false;
+        for (var key in { testForInA: 1, testForInB: 2 }) {
+            if (key === 'testForInA') {
+                isAin = true;
+            }
+            if (key === 'testForInB') {
+                isBin = true;
+            }
+        }
+
+        if (!isAin || !isBin) {
+            supportForin = false;
+        }
+    } catch(err) {
+        supportForin = false;
+    }
+
+    return supportForin;
+})();
 
 var noop = function() {};
 
@@ -44,7 +67,7 @@ function getRandom() {
     return random;
 }
 
-if (supportQuerySelector) {
+if (supportNecessaryJsApis && supportQuerySelector) {
     var forceDot = document.querySelector('[perf-dot]') === document.body;
 
     if (Math.random() > getRandom()) {

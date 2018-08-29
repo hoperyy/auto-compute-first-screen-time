@@ -508,11 +508,11 @@ function generateApi() {
                     util.cycleGettingPerformaceTime(_global, stableDotObj.firstScreenImages, function (performanceResult) {
                         targetDotObj.firstScreenImagesDetail = performanceResult.firstScreenImagesDetail;
 
-                        // 如果图片在上一个页面已经加载完毕，则还是通过打点记录的 onload 时间作为首屏时间
+                        // 如果图片在上一个子页面已经加载完毕，则还是通过打点记录的 onload 时间作为首屏时间
                         if (performanceResult.firstScreenTimeStamp <= _global.forcedNavStartTimeStamp) {
                             generateResultFromDot('dot-img-from-prepage-load');
                         } else {
-                            // 如果图片在当前页面加载完毕，则通过 performance 获取首屏时间
+                            // 如果图片在当前页面加载完毕，则使用 performance 提供的首屏时间
                             targetDotObj.firstScreenTimeStamp = performanceResult.firstScreenTimeStamp;
                             targetDotObj.maxErrorTime = 0;
                             targetDotObj.reportTimeFrom = 'dot-img-from-performance';

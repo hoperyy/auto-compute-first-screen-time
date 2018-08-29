@@ -5,7 +5,7 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.4.8',
+    version: '5.4.9',
 
     getDomReadyTime: function (_global, callback) {
         if (_global._isUsingOriginalNavStart) {
@@ -46,7 +46,7 @@ module.exports = {
             if (str) {
                 str = str.replace(/^url\([\'\"]?/, '').replace(/[\'\"]?\)$/, '');
 
-                if ((/^http/.test(str) || /^\/\//.test(str)) && this._filteImg(str, imgFilter)) {
+                if ((/^http/.test(str) || /^\/\//.test(str)) && this._isImg(str, imgFilter)) {
                     src = str;
                 }
             }
@@ -55,14 +55,14 @@ module.exports = {
         return src;
     },
 
-    _filteImg: function (src, imgFilter) {
+    _isImg: function (src, imgFilter) {
         for (var i = 0, len = imgFilter.length; i < len; i++) {
-            if (imgFilter[i].test(src)) {
-                return true;
+            if (!imgFilter[i].test(src)) {
+                return false;
             }
         }
 
-        return false;
+        return true;
     },
 
     currentPos: {
@@ -806,24 +806,27 @@ module.exports = {
         }
     },
 
-    _getUnuniqueDetailFromSource: function(source, firstScreenImages) {
+    _getUnuniqueDetailFromSource: function(source, firstScreenImages, imgFilter) {
         var ununiqueDetail = [];
         var that = this;
 
         // 从 source 中找到图片加载信息
         for (var i = 0, len = source.length; i < len; i++) {
             var sourceItem = source[i];
-            var imgUrl = that._formateUrlByAdd(sourceItem.name);
 
-            if (firstScreenImages.indexOf(imgUrl) !== -1) {
-                var responseEnd = parseInt(sourceItem.responseEnd);
-                var fetchStart = parseInt(sourceItem.fetchStart);
-                ununiqueDetail.push({
-                    src: imgUrl,
-                    responseEnd: responseEnd < 0 ? 0 : responseEnd,
-                    fetchStart: fetchStart < 0 ? 0 : fetchStart,
-                    from: 'performance'
-                });
+            if (that._isImg(sourceItem.name, imgFilter)) {
+                var imgUrl = that._formateUrlByAdd(sourceItem.name);
+
+                if (firstScreenImages.indexOf(imgUrl) !== -1) {
+                    var responseEnd = parseInt(sourceItem.responseEnd);
+                    var fetchStart = parseInt(sourceItem.fetchStart);
+                    ununiqueDetail.push({
+                        src: imgUrl,
+                        responseEnd: responseEnd < 0 ? 0 : responseEnd,
+                        fetchStart: fetchStart < 0 ? 0 : fetchStart,
+                        from: 'performance'
+                    });
+                }
             }
         }
 
@@ -881,7 +884,7 @@ module.exports = {
         var getPerformanceTime = function () {
             var source = performance.getEntries();
 
-            var ununiqueDetail = that._getUnuniqueDetailFromSource(source, firstScreenImages);
+            var ununiqueDetail = that._getUnuniqueDetailFromSource(source, firstScreenImages, _global.img);
             var firstScreenImagesDetail = [];
 
             // 遍历 ununiqueDetail 得到 srcMap： { src: [0, 1] }
