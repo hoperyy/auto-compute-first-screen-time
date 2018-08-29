@@ -5,7 +5,7 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.4.9',
+    version: '5.4.10',
 
     getDomReadyTime: function (_global, callback) {
         if (_global._isUsingOriginalNavStart) {
@@ -57,12 +57,12 @@ module.exports = {
 
     _isImg: function (src, imgFilter) {
         for (var i = 0, len = imgFilter.length; i < len; i++) {
-            if (!imgFilter[i].test(src)) {
-                return false;
+            if (imgFilter[i].test(src)) {
+                return true;
             }
         }
 
-        return true;
+        return false;
     },
 
     currentPos: {
@@ -210,7 +210,11 @@ module.exports = {
         //     return window.location.protocol + url;
         // }
 
-        return window.location.protocol + '//' + this._formateUrlByRemove(url);
+        if (/^http/.test(url)) {
+            return url;
+        } else {
+            return window.location.protocol + '//' + this._formateUrlByRemove(url);
+        }
     },
 
     formateUrlList: function(list) {
@@ -294,7 +298,7 @@ module.exports = {
             // onload 之后延时一段时间，如果到期后仍然没有异步请求发出，则认为是纯静态页面
             watingTimeWhenDefineStaticPage: 2000,
 
-            img: [/(\.)(png|jpg|jpeg|gif|webp)/i], // 匹配图片的正则表达式
+            img: [/(\.)(png|jpg|jpeg|gif|webp|ico)/i], // 匹配图片的正则表达式
 
             // 监听 body 标签上的 tag 发生变化，如果设置为 true，那么，每次变化均触发首屏时间的自动计算。主要用于单页应用计算首屏
             watchPerfStartChange: true,
