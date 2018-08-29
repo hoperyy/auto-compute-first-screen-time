@@ -34,7 +34,7 @@ var supportNecessaryJsApis = (function(){
 var noop = function() {};
 
 // 强制使用打点方式获取首屏时间
-supportPerformance = false;
+// supportPerformance = false;
 
 function getRandom() {
     var random = document.body.getAttribute('perf-random');
