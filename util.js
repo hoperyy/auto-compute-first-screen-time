@@ -5,7 +5,7 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.4.11',
+    version: '5.4.12',
 
     getDomReadyTime: function (_global, callback) {
         if (_global._isUsingOriginalNavStart) {
@@ -217,12 +217,12 @@ module.exports = {
         }
     },
 
-    formateUrlList: function(list) {
+    formateUrlList: function(list, formatType) {
         var formattedList = [];
         var formattedUrl;
 
         for (var i = 0, length = list.length; i < length; i++) {
-            formattedUrl = this._formateUrlByAdd(list[i]);
+            formattedUrl = formatType == 'add' ? this._formateUrlByAdd(list[i]) : this._formateUrlByRemove(list[i]);
             // 去重
             if (formattedList.indexOf(formattedUrl) === -1) {
                 formattedList.push(formattedUrl);
@@ -819,7 +819,8 @@ module.exports = {
             var sourceItem = source[i];
 
             if (that._isImg(sourceItem.name, imgFilter)) {
-                var imgUrl = that._formateUrlByAdd(sourceItem.name);
+                // 为了便于比较，去掉各种前缀，如协议等
+                var imgUrl = that._formateUrlByRemove(sourceItem.name);
 
                 if (firstScreenImages.indexOf(imgUrl) !== -1) {
                     var responseEnd = parseInt(sourceItem.responseEnd);
@@ -885,10 +886,13 @@ module.exports = {
         var fetchCount = 50;
         var that = this;
 
+        // 为了便于和 performace sources 比较，去掉各种前缀，如协议等
+        var protocolRemovedFirstScreenImages = that.formateUrlList(firstScreenImages, 'remove');
+
         var getPerformanceTime = function () {
             var source = performance.getEntries();
 
-            var ununiqueDetail = that._getUnuniqueDetailFromSource(source, firstScreenImages, _global.img);
+            var ununiqueDetail = that._getUnuniqueDetailFromSource(source, protocolRemovedFirstScreenImages, _global.img);
             var firstScreenImagesDetail = [];
 
             // 遍历 ununiqueDetail 得到 srcMap： { src: [0, 1] }
@@ -901,7 +905,7 @@ module.exports = {
                 return b.responseEnd - a.responseEnd;
             });
 
-            if (firstScreenImagesDetail.length === firstScreenImages.length) {
+            if (firstScreenImagesDetail.length === protocolRemovedFirstScreenImages.length) {
                 clearInterval(timer);
 
                 callback({

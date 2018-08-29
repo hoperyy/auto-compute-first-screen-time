@@ -371,8 +371,8 @@ function generateApi() {
             currentNode = nodeIterator.nextNode();
         }
 
-        // 格式化
-        return util.formateUrlList(imgList);
+        // 格式化，添加各种前缀
+        return util.formateUrlList(imgList, 'add');
     }
 
     function onStopObserving() {
@@ -490,6 +490,8 @@ function generateApi() {
                 targetDotObj.firstScreenImagesDetail = _getFirstScreenImageDetailsFromDot();
                 _report(targetDotObj);
             };
+
+            acftGlobal.supportPerformance = false;
 
             // 如果支持 performance API，则从 performance 中获取图片真实的返回时间
             if (acftGlobal.supportPerformance) {

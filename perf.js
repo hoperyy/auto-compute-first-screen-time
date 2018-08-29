@@ -200,7 +200,7 @@ function generateApi() {
         }
 
         // 格式化
-        return util.formateUrlList(imgList);
+        return util.formateUrlList(imgList, 'add');
     }
 
     // 插入脚本，用于获取脚本运行完成时间，这个时间用于获取当前页面是否有异步请求发出
