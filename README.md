@@ -258,7 +258,8 @@ Yes!
 
 ## TODO
 
-+   Tests
++   tests
++   bugfix
 
 ## LICENSE
 
