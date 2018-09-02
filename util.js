@@ -5,7 +5,7 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.4.13',
+    version: '5.4.14',
 
     getDomReadyTime: function (_global, callback) {
         if (_global._isUsingOriginalNavStart) {
@@ -32,6 +32,30 @@ module.exports = {
         }
     },
 
+    _getImgSrcFromBgImg: function(bgImg) {
+        var imgSrc;
+        // bgImg maybe like: 
+        // '-webkit-cross-fade(url("http://si.geilicdn.com/hz_img_0eac000001604a2739c40a026860_336_336_unadjust.png"), url("http://si.geilicdn.com/bj-pc-331569480-1508461443422-795323868_2976_3968.jpg.webp?w=400&h=400&cp=1"), 0.488091)'
+
+        // 'url(//si.geilicdn.com/bj-pc-331569480-1508461443422-795323868_2976_3968.jpg.webp?w=400&h=400&cp=1)',
+
+        // 'url("//si.geilicdn.com/bj-pc-331569480-1508461443422-795323868_2976_3968.jpg.webp?w=400&h=400&cp=1")',
+
+        // `url('//si.geilicdn.com/bj-pc-331569480-1508461443422-795323868_2976_3968.jpg.webp?w=400&h=400&cp=1')`
+        var matches = bgImg.match(/url\(.*?\)/g);
+
+        if (matches && matches.length) {
+            var urlStr = matches[matches.length - 1]; // use the last one
+            var innerUrl = urlStr.replace(/^url\([\'\"]?/, '').replace(/[\'\"]?\)$/, '');
+
+            if (((/^http/.test(innerUrl) || /^\/\//.test(innerUrl)))) {
+                imgSrc = innerUrl;
+            }
+        }  
+
+        return imgSrc;
+    },
+
     getImgSrcFromDom: function (dom, imgFilter) {
         var src;
 
@@ -40,15 +64,10 @@ module.exports = {
         } else {
             var computedStyle = window.getComputedStyle(dom);
             var bgImg = computedStyle.getPropertyValue('background-image') || computedStyle.getPropertyValue('background');
+            var tempSrc = this._getImgSrcFromBgImg(bgImg, imgFilter);
 
-            var match = bgImg.match(/url\(.+\)/);
-            var str = match && match[0];
-            if (str) {
-                str = str.replace(/^url\([\'\"]?/, '').replace(/[\'\"]?\)$/, '');
-
-                if ((/^http/.test(str) || /^\/\//.test(str)) && this._isImg(str, imgFilter)) {
-                    src = str;
-                }
+            if (tempSrc && this._isImg(tempSrc, imgFilter)) {
+                src = tempSrc;
             }
         }
 
@@ -413,9 +432,10 @@ module.exports = {
             if (!_global.requestDetails[requestKey]) {
                 _global.requestDetails[requestKey] = {
                     status: '',
-                    completeTimeStamp: '',
+                    sendTime: '',
                     completeTime: '',
-                    type: ''
+                    type: '',
+                    duration: ''
                 };
             }
         };
@@ -430,6 +450,7 @@ module.exports = {
 
             _global.requestDetails[requestKey].status = 'sent';
             _global.requestDetails[requestKey].type = type;
+            _global.requestDetails[requestKey].sendTime = that.getTime() - _global.forcedNavStartTimeStamp;
 
             requestTimerStatusPool[requestKey] = 'start';
 
@@ -446,8 +467,8 @@ module.exports = {
 
             // 标记这个请求完成
             _global.requestDetails[requestKey].status = 'complete';
-            _global.requestDetails[requestKey].completeTimeStamp = returnTime;
             _global.requestDetails[requestKey].completeTime = returnTime - _global.forcedNavStartTimeStamp;
+            _global.requestDetails[requestKey].duration = _global.requestDetails[requestKey].completeTime - _global.requestDetails[requestKey].sendTime;
 
             // 从这个请求返回的时刻起，延续一段时间，该时间段内的请求也需要被监听
             _global.catchRequestTimeSections.push([returnTime, returnTime + _global.renderTimeAfterGettingData]);

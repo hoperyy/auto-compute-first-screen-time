@@ -1,6 +1,4 @@
 // 脚本开始运行的时间，用于各种 log 等
-var scriptStartTime = new Date().getTime();
-
 var win = window;
 var doc = win.document;
 var util = require('./util');
@@ -101,7 +99,7 @@ function generateApi() {
             navigationStartTime: _global.forcedNavStartTimeStamp - _global._originalNavStart,
             isOriginalNavStart: _global.forcedNavStartTimeStamp === _global._originalNavStart,
             version: util.version,
-            runtime: util.getTime() - scriptStartTime,
+            recordTime: util.getTime() - _global.forcedNavStartTimeStamp,
             reportDesc: _global.reportDesc,
             url: window.location.href.substring(0, 200),
             globalIndex: _global.globalIndex,
@@ -114,14 +112,15 @@ function generateApi() {
             if (/^hand/.test(_global.reportDesc)) {
                 resultObj.firstScreenTimeStamp = _global.handExcuteTime;
                 resultObj.firstScreenTime = _global.handExcuteTime - _global._originalNavStart;
-
                 resultObj.reportTimeFrom = 'perf-hand-from-force';
+                resultObj.reportTime = util.getTime() - _global.forcedNavStartTimeStamp;
                 _report(resultObj);
             } else {
                 util.getDomReadyTime(_global, function (domReadyTimeStamp, reportTimeFrom) {
                     resultObj.firstScreenTimeStamp = domReadyTimeStamp;
                     resultObj.firstScreenTime = domReadyTimeStamp - _global._originalNavStart;
                     resultObj.reportTimeFrom = reportTimeFrom;
+                    resultObj.reportTime = util.getTime() - _global.forcedNavStartTimeStamp;
                     _report(resultObj);
                 });
             }
@@ -138,6 +137,7 @@ function generateApi() {
                 resultObj.firstScreenTimeStamp = performanceResult.firstScreenTimeStamp;
                 resultObj.firstScreenImagesDetail = performanceResult.firstScreenImagesDetail;
                 resultObj.reportTimeFrom = 'perf-img-from-performance';
+                resultObj.reportTime = util.getTime() - _global.forcedNavStartTimeStamp;
                 _report(resultObj);
             });
         }

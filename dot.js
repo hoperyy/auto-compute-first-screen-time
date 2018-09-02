@@ -1,8 +1,4 @@
 // 降级算法，该算法消耗一部分的性能，用于不支持 performance API 的场景，依赖 window.performance.timing
-
-// 脚本开始运行的时间，用于各种 log 等
-var scriptStartTime = new Date().getTime();
-
 var win = window;
 var doc = win.document;
 var util = require('./util');
@@ -146,7 +142,6 @@ function generateApi() {
                 delayAll: _global.delayAll, // 计算引发的总 delay
                 type: 'dot',
                 version: util.version,
-                runtime: util.getTime() - scriptStartTime, // 检测脚本运行的时长
                 reportDesc: _global.reportDesc,
                 url: window.location.href.substring(0, 200), // 当前页面 url
                 ignoredImages: _global.ignoredImages, // 计算首屏时被忽略的图片
@@ -192,6 +187,7 @@ function generateApi() {
         if (_global.delayReport) {
             var timer = setTimeout(function () {
                 if (canReport()) {
+                    resultObj.reportTime = util.getTime() - _global.forcedNavStartTimeStamp;
                     _global.onReport(resultObj);
                     _global.hasReported = true;
                 }
@@ -200,6 +196,7 @@ function generateApi() {
             }, _global.delayReport);
         } else {
             if (canReport()) {
+                resultObj.reportTime = util.getTime() - _global.forcedNavStartTimeStamp;
                 _global.onReport(resultObj);
                 _global.hasReported = true;
             }
