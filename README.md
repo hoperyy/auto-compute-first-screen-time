@@ -191,16 +191,6 @@ And then use it:
         <div perf-ignore style="background: url(xxx) 0 0 no-repeat;"></div> <!-- ignored -->
         ```
 
-    +   `<body perf-random="0.2"></body>`
-
-        the chance of current page will compute first screen time. `1` by default.
-
-        as this example, the chance with 20% of current page will compute first screen time;
-
-    +   `<body perf-dot></body>`
-
-        force computing first screen time by dotting. (as [Details](https://github.com/hoperyy/auto-compute-first-screen-time#details) below)
-
     +   `<anytag perf-scroll></anytag>`
 
         `anytag` means tags like `div / span / ul / ...`.

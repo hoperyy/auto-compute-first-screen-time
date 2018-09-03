@@ -5,7 +5,7 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.4.14',
+    version: '5.5.0',
 
     getDomReadyTime: function (_global, callback) {
         if (_global._isUsingOriginalNavStart) {
@@ -523,9 +523,7 @@ module.exports = {
                             url = args[0].url;
                         }
 
-                        // when failed to get fetch url, skip report
                         if (url) {
-                            // console.warn('[auto-compute-first-screen-time] no url param found in "fetch(...)"');
                             requestKey = onRequestSend(url, 'fetch').requestKey;
                         }
 

@@ -260,8 +260,8 @@ function generateApi() {
             var generateGlobalImgMapResult = function (options) {
                 var time = util.getTime();
                 return {
-                    loadTimeStamp: time,
-                    loadDuration: time - _global.forcedNavStartTimeStamp,
+                    onloadTimeStamp: time,
+                    onloadTime: time - _global.forcedNavStartTimeStamp,
                     maxErrorTime: options.maxErrorTime,
                     type: options.type
                 }
@@ -430,15 +430,15 @@ function generateApi() {
                         src: imgMapKey,
                         type: imgItem['type'],
                         maxErrorTime: imgItem['maxErrorTime'],
-                        loadTimeStamp: imgItem['loadTimeStamp'],
-                        loadDuration: imgItem['loadDuration'],
+                        onloadTimeStamp: imgItem['onloadTimeStamp'],
+                        onloadTime: imgItem['onloadTime'],
                         from: 'dot'
                     });
                 }
             }
 
             firstScreenImagesDetail.sort(function (a, b) {
-                return b.loadDuration - a.loadDuration;
+                return b.onloadTime - a.onloadTime;
             });
 
             return firstScreenImagesDetail;
@@ -469,7 +469,7 @@ function generateApi() {
 
                 // 倒序
                 timeArr.sort(function (a, b) {
-                    if (a.loadTimeStamp < b.loadTimeStamp) {
+                    if (a.onloadTimeStamp < b.onloadTimeStamp) {
                         return 1;
                     } else {
                         return -1;
@@ -481,7 +481,7 @@ function generateApi() {
 
             var generateResultFromDot = function (reportTimeFrom) {
                 var lastImgDownloadDetail = _getLastImgDownloadDetailFromDot(stableDotObj.firstScreenImages);
-                targetDotObj.firstScreenTimeStamp = lastImgDownloadDetail.loadTimeStamp; // 获取此次打点最后一张图片 onload 的时刻
+                targetDotObj.firstScreenTimeStamp = lastImgDownloadDetail.onloadTimeStamp; // 获取此次打点最后一张图片 onload 的时刻
                 targetDotObj.maxErrorTime = lastImgDownloadDetail.maxErrorTime; // 获取此次打点时最后一张图片 onload 时间的误差值
                 targetDotObj.reportTimeFrom = reportTimeFrom;
                 targetDotObj.firstScreenImagesDetail = _getFirstScreenImageDetailsFromDot();
