@@ -11,7 +11,7 @@ var supportTiming = window.performance && window.performance.timing;
 var noop = function() {};
 
 // 强制使用打点方式获取首屏时间
-// supportPerformance = false;
+supportPerformance = false;
 
 if (supportQuerySelector && supportPerformance) {
     module.exports = require('./perf').auto;

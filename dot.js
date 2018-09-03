@@ -488,8 +488,6 @@ function generateApi() {
                 _report(targetDotObj);
             };
 
-            acftGlobal.supportPerformance = false;
-
             // 如果支持 performance API，则从 performance 中获取图片真实的返回时间
             if (acftGlobal.supportPerformance) {
                 var isLastImageTimeFromOnload = function () {
