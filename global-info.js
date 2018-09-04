@@ -5,5 +5,5 @@ module.exports = {
         usedChangeList: []
     },
     onloadFinished: false,
-    supportPerformance: ('performance' in window) && ('getEntriesByType' in window.performance) && (window.performance.getEntriesByType('resource') instanceof Array)
+    supportPerformance: window.performance && window.performance.getEntries && typeof window.performance.getEntries === 'function' && (window.performance.getEntries() instanceof Array)
 };

@@ -5,13 +5,13 @@
  */
 
 var supportQuerySelector = !!document.querySelector;
-var supportPerformance = ('performance' in window) && ('getEntriesByType' in window.performance) && (window.performance.getEntriesByType('resource') instanceof Array);
 var supportTiming = window.performance && window.performance.timing;
+var supportPerformance = window.performance && window.performance.getEntries && typeof window.performance.getEntries === 'function' && (window.performance.getEntries() instanceof Array);
 
 var noop = function() {};
 
 // 强制使用打点方式获取首屏时间
-supportPerformance = false;
+// supportPerformance = false;
 
 if (supportQuerySelector && supportPerformance) {
     module.exports = require('./perf').auto;
