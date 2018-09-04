@@ -125,6 +125,7 @@ function generateApi() {
 
             // 最终呈现给用户的首屏信息对象
             var resultObj = {
+                type: 'dot',
                 success: true,
                 maxErrorTime: targetDotObj.maxErrorTime, // 最大误差值
                 dotList: _global.dotList, // 打点列表
@@ -140,7 +141,6 @@ function generateApi() {
                 isOriginalNavStart: _global.forcedNavStartTimeStamp === _global._originalNavStart,
                 delayFirstScreen: delayFirstScreen, // 计算引发的首屏时间 delay
                 delayAll: _global.delayAll, // 计算引发的总 delay
-                type: 'dot',
                 version: util.version,
                 reportDesc: _global.reportDesc,
                 url: window.location.href.substring(0, 200), // 当前页面 url
@@ -222,6 +222,7 @@ function generateApi() {
         _global.delayAll += recordEndTime - recordStartTime;
 
         var dotObj = {
+            type: 'dot',
             isImgInFirstScreen: recordFirstScreen || false,
             isFromInternal: (param && param.isFromInternal) ? true : false,
             firstScreenImages: firstScreenImages, // 此时打点的首屏图片数组
