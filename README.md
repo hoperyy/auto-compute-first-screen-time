@@ -138,7 +138,7 @@ And then use it:
         +   default: `/jsonp=callback/`
         +   description
 
-            Fiter for cathing jsonp request.
+            Filter for cathing jsonp request.
  
     +   `options.navigationStartChangeTag`
 
