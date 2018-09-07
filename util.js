@@ -929,7 +929,7 @@ module.exports = {
 
                 // 有些机型虽然支持 performance，但细节处的 responseEnd 等可能没有值或为 0。
                 // 如果 responseEnd 值不存在，则不上报该样本
-                if (firstScreenImagesDetail[0].responseEnd) {
+                if (firstScreenImagesDetail[0].responseEnd > 0) {
                     callback({
                         firstScreenTime: parseInt(firstScreenImagesDetail[0].responseEnd),
                         firstScreenTimeStamp: parseInt(firstScreenImagesDetail[0].responseEnd) + _global._originalNavStart,
