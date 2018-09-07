@@ -846,8 +846,8 @@ module.exports = {
                     var fetchStart = parseInt(sourceItem.fetchStart);
                     ununiqueDetail.push({
                         src: imgUrl,
-                        responseEnd: responseEnd < 0 ? 0 : responseEnd,
-                        fetchStart: fetchStart < 0 ? 0 : fetchStart,
+                        responseEnd: responseEnd,
+                        fetchStart: fetchStart,
                         from: 'performance'
                     });
                 }
@@ -927,11 +927,15 @@ module.exports = {
             if (firstScreenImagesDetail.length === protocolRemovedFirstScreenImages.length) {
                 clearInterval(timer);
 
-                callback({
-                    firstScreenTime: parseInt(firstScreenImagesDetail[0].responseEnd),
-                    firstScreenTimeStamp: parseInt(firstScreenImagesDetail[0].responseEnd) + _global._originalNavStart,
-                    firstScreenImagesDetail: firstScreenImagesDetail
-                });
+                // 有些机型虽然支持 performance，但细节处的 responseEnd 等可能没有值或为 0。
+                // 如果 responseEnd 值不存在，则不上报该样本
+                if (firstScreenImagesDetail[0].responseEnd) {
+                    callback({
+                        firstScreenTime: parseInt(firstScreenImagesDetail[0].responseEnd),
+                        firstScreenTimeStamp: parseInt(firstScreenImagesDetail[0].responseEnd) + _global._originalNavStart,
+                        firstScreenImagesDetail: firstScreenImagesDetail
+                    });
+                }
             }
 
             fetchCount--;

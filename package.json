@@ -1,12 +1,11 @@
 {
   "name": "auto-compute-first-screen-time",
-  "version": "5.5.6",
+  "version": "5.5.7",
   "description": "A tool for auto computing first screen time of one page.",
   "main": "./dist/index.js",
   "scripts": {
     "build": "cross-env NODE_ENV=production webpack --config ./build/webpack.config.js",
-    "dev": "cross-env NODE_ENV=development webpack --config ./build/webpack.config.js & http-server & open 'http://localhost:8080/test/'",
-    "prepublishOnly": "npm run build"
+    "dev": "cross-env NODE_ENV=development webpack --config ./build/webpack.config.js & http-server & open 'http://localhost:8080/test/'"
   },
   "repository": {
     "type": "git",
