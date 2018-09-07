@@ -489,38 +489,40 @@ function generateApi() {
                 _report(targetDotObj);
             };
 
-            // 如果支持 performance API，则从 performance 中获取图片真实的返回时间
-            if (acftGlobal.supportPerformance) {
-                var isLastImageTimeFromOnload = function () {
-                    var lastImgDownloadDetail = _getLastImgDownloadDetailFromDot(stableDotObj.firstScreenImages);
-                    if (lastImgDownloadDetail && lastImgDownloadDetail.type === 'onload') {
-                        return true;
-                    }
-                    return false;
-                };
+            generateResultFromDot('dot-img-from-onload');
 
-                // 如果图片全部是通过 onload 获取的时间，优先从打点信息中；否则从 performance 数据取
-                if (isLastImageTimeFromOnload()) {
-                    generateResultFromDot('dot-img-from-onload');
-                } else {
-                    util.cycleGettingPerformaceTime(_global, stableDotObj.firstScreenImages, function (performanceResult) {
-                        targetDotObj.firstScreenImagesDetail = performanceResult.firstScreenImagesDetail;
+            // // 如果支持 performance API，则从 performance 中获取图片真实的返回时间
+            // if (acftGlobal.supportPerformance) {
+            //     var isLastImageTimeFromOnload = function () {
+            //         var lastImgDownloadDetail = _getLastImgDownloadDetailFromDot(stableDotObj.firstScreenImages);
+            //         if (lastImgDownloadDetail && lastImgDownloadDetail.type === 'onload') {
+            //             return true;
+            //         }
+            //         return false;
+            //     };
 
-                        // 如果图片在上一个子页面已经加载完毕，则还是通过打点记录的 onload 时间作为首屏时间
-                        if (performanceResult.firstScreenTimeStamp <= _global.forcedNavStartTimeStamp) {
-                            generateResultFromDot('dot-img-from-prepage-load');
-                        } else {
-                            // 如果图片在当前页面加载完毕，则使用 performance 提供的首屏时间
-                            targetDotObj.firstScreenTimeStamp = performanceResult.firstScreenTimeStamp;
-                            targetDotObj.maxErrorTime = 0;
-                            targetDotObj.reportTimeFrom = 'dot-img-from-performance';
-                            _report(targetDotObj);
-                        }
-                    });
-                }
-            } else { // 如果不支持 performance API，则从打点信息中获取图片返回时间
-                generateResultFromDot('dot-img-from-onload');
-            }
+            //     // 如果图片全部是通过 onload 获取的时间，优先从打点信息中；否则从 performance 数据取
+            //     if (isLastImageTimeFromOnload()) {
+            //         generateResultFromDot('dot-img-from-onload');
+            //     } else {
+            //         util.cycleGettingPerformaceTime(_global, stableDotObj.firstScreenImages, function (performanceResult) {
+            //             targetDotObj.firstScreenImagesDetail = performanceResult.firstScreenImagesDetail;
+
+            //             // 如果图片在上一个子页面已经加载完毕，则还是通过打点记录的 onload 时间作为首屏时间
+            //             if (performanceResult.firstScreenTimeStamp <= _global.forcedNavStartTimeStamp) {
+            //                 generateResultFromDot('dot-img-from-prepage-load');
+            //             } else {
+            //                 // 如果图片在当前页面加载完毕，则使用 performance 提供的首屏时间
+            //                 targetDotObj.firstScreenTimeStamp = performanceResult.firstScreenTimeStamp;
+            //                 targetDotObj.maxErrorTime = 0;
+            //                 targetDotObj.reportTimeFrom = 'dot-img-from-performance';
+            //                 _report(targetDotObj);
+            //             }
+            //         });
+            //     }
+            // } else { // 如果不支持 performance API，则从打点信息中获取图片返回时间
+            //     generateResultFromDot('dot-img-from-onload');
+            // }
         };
 
         if (targetDotObj.firstScreenImages.length === 0) {
