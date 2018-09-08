@@ -591,8 +591,7 @@ module.exports = {
                                     clearTimeout(timeoutTimer);
                                 }
                             });
-                        }
-                        else { // Others
+                        } else { // Others
                             node.addEventListener('load', function () {
                                 afterLoadOrErrorOrTimeout(requestKey);
                                 clearTimeout(timeoutTimer);
