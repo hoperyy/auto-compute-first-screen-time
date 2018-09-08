@@ -1,4 +1,5 @@
 const path = require('path');
+const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 
 module.exports = {
     entry: path.resolve(__dirname, '../index.js'),
@@ -9,5 +10,8 @@ module.exports = {
         library: 'autoComputeFirstScreenTime'
     },
     mode: process.env.NODE_ENV,
-    watch: /development/.test(process.env.NODE_ENV) ? true : false
+    watch: /development/.test(process.env.NODE_ENV) ? true : false,
+    plugins: [
+        new BundleAnalyzerPlugin()
+    ]
 };
