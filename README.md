@@ -211,7 +211,7 @@ And then use it:
         from
         
         ```
-        var scrollTop = document.documentElement.scrollTop || document.body.scrollTop
+        var scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
         ```
         
         to 
