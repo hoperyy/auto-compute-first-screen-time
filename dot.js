@@ -149,7 +149,10 @@ function generateApi() {
                 globalIndex: _global.globalIndex,
                 domChangeList: _global.domChangeList, // dom 变化数组
                 navigationTagChangeMap: acftGlobal.navigationTagChangeMap,
-                reportTimeFrom: targetDotObj.reportTimeFrom
+                reportTimeFrom: targetDotObj.reportTimeFrom,
+                errorMessages: _global.errorMessages,
+                stableTime: _global.stableTime,
+                tryReportTime: util.getTime() - _global.forcedNavStartTimeStamp
             };
 
             return resultObj;
@@ -229,7 +232,7 @@ function generateApi() {
             firstScreenImagesLength: firstScreenImages.length, // 有几张首屏图片
             dotIndex: _global.dotList.length, // 打点索引
             dotTimeStamp: recordStartTime, // 打点时刻
-            dotTimeDuration: recordStartTime - _global.forcedNavStartTimeStamp,
+            dotTime: recordStartTime - _global.forcedNavStartTimeStamp,
             delay: recordEndTime - recordStartTime, // 此次打点持续了多久
 
             // 标记该打点时刻抓到的图片是否全部 onload，后面会被修正
@@ -383,8 +386,12 @@ function generateApi() {
         // 标记停止监听请求
         _global.stopCatchingRequest = true;
 
+        // 记录稳定时刻
+        _global.stableTime = util.getTime() - _global.forcedNavStartTimeStamp;
+
         util.stopWatchDomUpdate(_global);
         util.stopCatchingRequest(_global);
+        util.stopWatchingError(_global);
 
         clearInterval(_global.intervalDotTimer);
 
@@ -408,7 +415,7 @@ function generateApi() {
                 reportTargetDotObj(targetDotObj);
                 clearInterval(checkTimer);
 
-                // clear todo
+                // TODO: clear
             }
         };
         checkTimer = setInterval(check, 1000);
@@ -490,39 +497,6 @@ function generateApi() {
             };
 
             generateResultFromDot('dot-img-from-onload');
-
-            // // 如果支持 performance API，则从 performance 中获取图片真实的返回时间
-            // if (acftGlobal.supportPerformance) {
-            //     var isLastImageTimeFromOnload = function () {
-            //         var lastImgDownloadDetail = _getLastImgDownloadDetailFromDot(stableDotObj.firstScreenImages);
-            //         if (lastImgDownloadDetail && lastImgDownloadDetail.type === 'onload') {
-            //             return true;
-            //         }
-            //         return false;
-            //     };
-
-            //     // 如果图片全部是通过 onload 获取的时间，优先从打点信息中；否则从 performance 数据取
-            //     if (isLastImageTimeFromOnload()) {
-            //         generateResultFromDot('dot-img-from-onload');
-            //     } else {
-            //         util.cycleGettingPerformaceTime(_global, stableDotObj.firstScreenImages, function (performanceResult) {
-            //             targetDotObj.firstScreenImagesDetail = performanceResult.firstScreenImagesDetail;
-
-            //             // 如果图片在上一个子页面已经加载完毕，则还是通过打点记录的 onload 时间作为首屏时间
-            //             if (performanceResult.firstScreenTimeStamp <= _global.forcedNavStartTimeStamp) {
-            //                 generateResultFromDot('dot-img-from-prepage-load');
-            //             } else {
-            //                 // 如果图片在当前页面加载完毕，则使用 performance 提供的首屏时间
-            //                 targetDotObj.firstScreenTimeStamp = performanceResult.firstScreenTimeStamp;
-            //                 targetDotObj.maxErrorTime = 0;
-            //                 targetDotObj.reportTimeFrom = 'dot-img-from-performance';
-            //                 _report(targetDotObj);
-            //             }
-            //         });
-            //     }
-            // } else { // 如果不支持 performance API，则从打点信息中获取图片返回时间
-            //     generateResultFromDot('dot-img-from-onload');
-            // }
         };
 
         if (targetDotObj.firstScreenImages.length === 0) {
@@ -573,6 +547,10 @@ function generateApi() {
         util.mergeUserConfig(_global, userConfig);
     }
 
+    function watchError() {
+        util.watchError(_global);
+    }
+
     return {
         mergeUserConfig: mergeUserConfig,
         testStaticPage: testStaticPage,
@@ -580,6 +558,7 @@ function generateApi() {
         overrideRequest: overrideRequest,
         recordDomInfo: recordDomInfo,
         onStopObserving: onStopObserving,
+        watchError: watchError,
         global: _global
     };
 }
@@ -589,6 +568,7 @@ module.exports = {
         var go = function () {
             var api = generateApi();
             api.global.reportDesc = 'auto-dot';
+            api.watchError();
             api.mergeUserConfig(userConfig);
             api.testStaticPage();
             api.observeDomChange();
@@ -617,7 +597,7 @@ module.exports = {
     hand: function(userConfig) {
         var api = generateApi();
         api.global.reportDesc = 'hand-dot';
-        api.global.handExcuteTime = new Date().getTime();
+        api.global.handExcuteTime = util.getTime();
         api.mergeUserConfig(userConfig);
         api.onStopObserving();
     }

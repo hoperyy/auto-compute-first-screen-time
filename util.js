@@ -5,7 +5,7 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.5.5',
+    version: '5.6.0',
 
     getDomReadyTime: function (_global, callback) {
         if (_global._isUsingOriginalNavStart) {
@@ -298,6 +298,10 @@ module.exports = {
 
             _isUsingOriginalNavStart: true,
 
+            _errorWatcher: function() {},
+
+            errorMessages: [],
+
             abortReport: false,
 
             onReport: function () { },
@@ -339,7 +343,9 @@ module.exports = {
             // 用于拦截 jsonp 请求，js url 匹配该正则时
             jsonpFilter: /callback=jsonp/,
 
-            reportTimeFrom: ''
+            reportTimeFrom: '',
+
+            stableTime: '' // 首屏十分稳定时刻
         }
     },
 
@@ -947,5 +953,47 @@ module.exports = {
         var timer = setInterval(getPerformanceTime, 1000);
 
         getPerformanceTime();
+    },
+
+    watchError: function(global) {
+        if (window.addEventListener) {
+            global._errorWatcher = function (e) {
+                var result = {
+                    lineno: e.lineno,
+                    colno: e.colno,
+                    time: new Date().getTime() - global.forcedNavStartTimeStamp
+                };
+
+                if (e.error) {
+                    result.message = e.error.message;
+                    result.stack = e.error.stack;
+                }
+
+                global.errorMessages.push(result);
+            };
+
+            window.addEventListener('error', global._errorWatcher);
+        }
+    },
+
+    stopWatchingError: function(global) {
+        if (window.removeEventListener && global._errorWatcher) {
+            window.removeEventListener('error', global._errorWatcher);
+        }
+    },
+
+    // 模拟 network
+    generateNetwork: function() {
+        var result = [];
+
+        if (window.performance && typeof window.performance.getEntries === 'function') {
+            var network = window.performance.getEntries();
+
+            if (network && network.length) {
+                result = network;
+            }
+        }
+
+        return result;
     }
 };

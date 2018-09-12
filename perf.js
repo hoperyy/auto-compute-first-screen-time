@@ -26,11 +26,15 @@ function generateApi() {
 
         util.stopWatchDomUpdate(_global);
         util.stopCatchingRequest(_global);
+        util.stopWatchingError(_global);
 
         _global.hasStableFound = true;
 
         // 标记停止监听请求
         _global.stopCatchingRequest = true;
+
+        // 记录稳定时刻
+        _global.stableTime = util.getTime() - _global.forcedNavStartTimeStamp;
 
         // 获取当前时刻获取的首屏信息，并根据该信息获取首屏时间
         var stableObject = recordFirstScreenInfo();
@@ -57,11 +61,17 @@ function generateApi() {
         resultObj.ignoredImages = _global.ignoredImages;
         resultObj.device = _global.device;
         resultObj.success = true;
+        resultObj.tryReportTime = util.getTime() - _global.forcedNavStartTimeStamp;
+
+        // 为 resultObj 添加 network 和 error message 信息
+        resultObj.errorMessages = _global.errorMessages;
+        resultObj.network = util.generateNetwork();
 
         if (_global.delayReport) {
             var timer = setTimeout(function() {
                 if (canReport()) {
                     _global.hasReported = true;
+                    resultObj.reportTime = util.getTime() - _global.forcedNavStartTimeStamp;
                     _global.onReport(resultObj); // 上报的内容是定时器之前的数据
                 }
                 
@@ -69,6 +79,7 @@ function generateApi() {
             }, _global.delayReport);
         } else {
             if (canReport()) {
+                resultObj.reportTime = util.getTime() - _global.forcedNavStartTimeStamp;
                 _global.onReport(resultObj);
             }
         }
@@ -105,7 +116,10 @@ function generateApi() {
             globalIndex: _global.globalIndex,
             domChangeList: _global.domChangeList,
             navigationTagChangeMap: acftGlobal.navigationTagChangeMap,
-            reportTimeFrom: _global.reportTimeFrom // init，后面还会被赋值
+            reportTimeFrom: _global.reportTimeFrom,
+            errorMessages: [], // 获取错误信息
+            network: [], // 模拟 network
+            stableTime: _global.stableTime
         };
 
         var processNoImages = function() {
@@ -113,14 +127,12 @@ function generateApi() {
                 resultObj.firstScreenTimeStamp = _global.handExcuteTime;
                 resultObj.firstScreenTime = _global.handExcuteTime - _global._originalNavStart;
                 resultObj.reportTimeFrom = 'perf-hand-from-force';
-                resultObj.reportTime = util.getTime() - _global.forcedNavStartTimeStamp;
                 _report(resultObj);
             } else {
                 util.getDomReadyTime(_global, function (domReadyTimeStamp, reportTimeFrom) {
                     resultObj.firstScreenTimeStamp = domReadyTimeStamp;
                     resultObj.firstScreenTime = domReadyTimeStamp - _global._originalNavStart;
                     resultObj.reportTimeFrom = reportTimeFrom;
-                    resultObj.reportTime = util.getTime() - _global.forcedNavStartTimeStamp;
                     _report(resultObj);
                 });
             }
@@ -137,7 +149,6 @@ function generateApi() {
                 resultObj.firstScreenTimeStamp = performanceResult.firstScreenTimeStamp;
                 resultObj.firstScreenImagesDetail = performanceResult.firstScreenImagesDetail;
                 resultObj.reportTimeFrom = 'perf-img-from-performance';
-                resultObj.reportTime = util.getTime() - _global.forcedNavStartTimeStamp;
                 _report(resultObj);
             });
         }
@@ -220,11 +231,16 @@ function generateApi() {
         util.mergeUserConfig(_global, userConfig);
     }
 
+    function watchError() {
+        util.watchError(_global);
+    }
+
     return {
         mergeUserConfig: mergeUserConfig,
         testStaticPage: testStaticPage,
         overrideRequest: overrideRequest,
         recordFirstScreenInfo: recordFirstScreenInfo,
+        watchError: watchError,
         global: _global
     };
 }
@@ -234,6 +250,7 @@ module.exports = {
         var go = function () {
             var api = generateApi('auto');
             api.global.reportDesc = 'auto-perf';
+            api.watchError();
             api.mergeUserConfig(userConfig);
             api.testStaticPage();
             api.overrideRequest();
@@ -262,7 +279,7 @@ module.exports = {
     hand: function (userConfig) {
         var api = generateApi('hand');
         api.global.reportDesc = 'hand-perf';
-        api.global.handExcuteTime = new Date().getTime();
+        api.global.handExcuteTime = util.getTime();
         api.mergeUserConfig(userConfig);
         api.recordFirstScreenInfo('perf-hand');
     }
