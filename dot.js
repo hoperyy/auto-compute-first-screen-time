@@ -262,10 +262,11 @@ function generateApi() {
             };
 
             var generateGlobalImgMapResult = function (options) {
-                var time = util.getTime();
+                var currentTimeStamp = util.getTime();
                 return {
-                    onloadTimeStamp: time,
-                    onloadTime: time - _global.forcedNavStartTimeStamp,
+                    requestTime: options.requestTime,
+                    onloadTimeStamp: currentTimeStamp,
+                    onloadTime: currentTimeStamp - _global.forcedNavStartTimeStamp,
                     maxErrorTime: options.maxErrorTime,
                     type: options.type
                 }
@@ -278,12 +279,15 @@ function generateApi() {
                     var img = new Image();
                     img.src = src;
 
+                    var currentTimeStamp = util.getTime();
+
                     // 浏览器支持 img.complete 且 img.complete 为 true，优先使用该属性
                     if (img.complete) {
                         // 记录该图片加载完成的时间，以最早那次为准
                         if (!_global.imgMap[src]) {
                             var currentImgMaxErrorTime = _global.dotList[dotObj.dotIndex - 1] ? (dotObj.dotTimeStamp - _global.dotList[dotObj.dotIndex - 1].dotTimeStamp) : 0;
                             _global.imgMap[src] = generateGlobalImgMapResult({
+                                requestTime: currentTimeStamp - _global.forcedNavStartTimeStamp,
                                 maxErrorTime: currentImgMaxErrorTime, 
                                 type: 'complete'
                             });
@@ -295,6 +299,7 @@ function generateApi() {
                             // 记录该图片加载完成的时间，以最早那次为准
                             if (!_global.imgMap[src]) {
                                 _global.imgMap[src] = generateGlobalImgMapResult({
+                                    requestTime: currentTimeStamp - _global.forcedNavStartTimeStamp,
                                     maxErrorTime: 0,
                                     type: 'onload'
                                 });
@@ -438,6 +443,7 @@ function generateApi() {
                         src: imgMapKey,
                         type: imgItem['type'],
                         maxErrorTime: imgItem['maxErrorTime'],
+                        requestTime: imgItem['requestTime'],
                         onloadTimeStamp: imgItem['onloadTimeStamp'],
                         onloadTime: imgItem['onloadTime'],
                         from: 'dot'

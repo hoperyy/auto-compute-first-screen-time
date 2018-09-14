@@ -5,7 +5,7 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.6.0',
+    version: '5.6.1',
 
     getDomReadyTime: function (_global, callback) {
         if (_global._isUsingOriginalNavStart) {
@@ -847,12 +847,10 @@ module.exports = {
                 var imgUrl = that._formateUrlByRemove(sourceItem.name);
 
                 if (firstScreenImages.indexOf(imgUrl) !== -1) {
-                    var responseEnd = parseInt(sourceItem.responseEnd);
-                    var fetchStart = parseInt(sourceItem.fetchStart);
                     ununiqueDetail.push({
                         src: imgUrl,
-                        responseEnd: responseEnd,
-                        fetchStart: fetchStart,
+                        responseEnd: parseInt(sourceItem.responseEnd),
+                        fetchStart: parseInt(sourceItem.fetchStart),
                         from: 'performance'
                     });
                 }
@@ -932,12 +930,13 @@ module.exports = {
             if (firstScreenImagesDetail.length === protocolRemovedFirstScreenImages.length) {
                 clearInterval(timer);
 
-                // 有些机型虽然支持 performance，但细节处的 responseEnd 等可能没有值或为 0。
-                // 如果 responseEnd 值不存在，则不上报该样本
-                if (firstScreenImagesDetail[0].responseEnd > 0) {
+                var resultResponseEnd = firstScreenImagesDetail[0].responseEnd;
+
+                // 过滤掉不正常的样本（responseEnd 异常：undefined 或 0 或 大于 1000 * 1000，避免有些浏览器将 responseEnd 实现为时间戳而不是时长，时间戳肯定大于 1000 * 1000 ms）
+                if (resultResponseEnd > 0 && resultResponseEnd < 1000 * 1000) {
                     callback({
-                        firstScreenTime: parseInt(firstScreenImagesDetail[0].responseEnd),
-                        firstScreenTimeStamp: parseInt(firstScreenImagesDetail[0].responseEnd) + _global._originalNavStart,
+                        firstScreenTime: parseInt(resultResponseEnd),
+                        firstScreenTimeStamp: parseInt(resultResponseEnd) + _global._originalNavStart,
                         firstScreenImagesDetail: firstScreenImagesDetail
                     });
                 }
