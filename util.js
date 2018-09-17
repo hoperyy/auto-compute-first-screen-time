@@ -5,7 +5,7 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.6.2',
+    version: '5.6.3',
 
     getDomReadyTime: function (_global, callback) {
         if (_global._isUsingOriginalNavStart) {
@@ -345,7 +345,7 @@ module.exports = {
 
             reportTimeFrom: '',
 
-            stableTime: '' // 首屏十分稳定时刻
+            stableTime: '' // 首屏非常稳定的时刻
         }
     },
 
@@ -498,6 +498,7 @@ module.exports = {
                     var oldReadyCallback = this.onreadystatechange;
                     this.onreadystatechange = function () {
                         if (this.readyState === 4) {
+                            _global.requestDetails[requestKey].response = this.response;
                             afterRequestReturn(requestKey);
                         }
 
@@ -535,11 +536,13 @@ module.exports = {
 
                         oldFetch.apply(that, args).then(function (response) {
                             if (requestKey) {
+                                // _global.requestDetails[requestKey].response = response;
                                 afterRequestReturn(requestKey);
                             }
                             resolve(response);
                         }).catch(function (err) {
                             if (requestKey) {
+                                // _global.requestDetails[requestKey].response = response;
                                 afterRequestReturn(requestKey);
                             }
                             reject(err);
