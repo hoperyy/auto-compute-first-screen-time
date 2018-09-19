@@ -72,6 +72,10 @@ And then use it:
 
     Options means `autoComputeFirstScreenTime(options)` and `autoComputeFirstScreenTime.report(options)`.
 
+    +   `options.type`
+
+        Computing type, which should be one of below: `auto/perf/dot`. `auto` by default.
+
     +   `options.onReport`
 
         +   type: `Function`
