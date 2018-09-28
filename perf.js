@@ -150,6 +150,8 @@ function generateApi() {
                 resultObj.firstScreenImagesDetail = performanceResult.firstScreenImagesDetail;
                 resultObj.reportTimeFrom = 'perf-img-from-performance';
                 _report(resultObj);
+            }, function() {
+                processNoImages();
             });
         }
 

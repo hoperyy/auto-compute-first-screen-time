@@ -5,7 +5,7 @@ var acftGlobal = require('./global-info');
 var SLICE = Array.prototype.slice;
 
 module.exports = {
-    version: '5.7.1',
+    version: '5.7.2',
 
     getDomReadyTime: function (_global, callback) {
         if (_global._isUsingOriginalNavStart) {
@@ -321,7 +321,7 @@ module.exports = {
             // onload 之后延时一段时间，如果到期后仍然没有异步请求发出，则认为是纯静态页面
             watingTimeWhenDefineStaticPage: 2000,
 
-            img: [/(\.)(png|jpg|jpeg|gif|webp|ico|bmp|tiff)/i], // 匹配图片的正则表达式
+            img: [/(\.)(png|jpg|jpeg|gif|webp|ico|bmp|tiff|svg)/i], // 匹配图片的正则表达式
 
             // 监听 body 标签上的 tag 发生变化，如果设置为 true，那么，每次变化均触发首屏时间的自动计算。主要用于单页应用计算首屏
             watchPerfStartChange: true,
@@ -907,12 +907,25 @@ module.exports = {
         return firstScreenImagesDetail;
     },
 
-    cycleGettingPerformaceTime: function (_global, firstScreenImages, callback) {
-        var fetchCount = 50;
+    cycleGettingPerformaceTime: function (_global, firstScreenImages, callbackWithImages, callbackWithoutImages) {
+        var fetchCount = 5;
         var that = this;
 
         // 为了便于和 performace sources 比较，去掉各种前缀，如协议等
         var protocolRemovedFirstScreenImages = that.formateUrlList(firstScreenImages, 'remove');
+
+        var runCallbackWithImages = function (firstScreenImagesDetail) {
+            var resultResponseEnd = firstScreenImagesDetail[0].responseEnd;
+
+            // 过滤掉不正常的样本（responseEnd 异常：undefined 或 0 或 大于 1000 * 1000，避免有些浏览器将 responseEnd 实现为时间戳而不是时长，时间戳肯定大于 1000 * 1000 ms）
+            if (resultResponseEnd > 0 && resultResponseEnd < 1000 * 1000) {
+                callbackWithImages({
+                    firstScreenTime: parseInt(resultResponseEnd),
+                    firstScreenTimeStamp: parseInt(resultResponseEnd) + _global._originalNavStart,
+                    firstScreenImagesDetail: firstScreenImagesDetail
+                });
+            }
+        };
 
         var getPerformanceTime = function () {
             var source = performance.getEntries();
@@ -930,23 +943,20 @@ module.exports = {
                 return b.responseEnd - a.responseEnd;
             });
 
-            if (firstScreenImagesDetail.length === protocolRemovedFirstScreenImages.length) {
-                clearInterval(timer);
-
-                var resultResponseEnd = firstScreenImagesDetail[0].responseEnd;
-
-                // 过滤掉不正常的样本（responseEnd 异常：undefined 或 0 或 大于 1000 * 1000，避免有些浏览器将 responseEnd 实现为时间戳而不是时长，时间戳肯定大于 1000 * 1000 ms）
-                if (resultResponseEnd > 0 && resultResponseEnd < 1000 * 1000) {
-                    callback({
-                        firstScreenTime: parseInt(resultResponseEnd),
-                        firstScreenTimeStamp: parseInt(resultResponseEnd) + _global._originalNavStart,
-                        firstScreenImagesDetail: firstScreenImagesDetail
-                    });
-                }
-            }
-
             fetchCount--;
-            if (fetchCount <= 0) {
+
+            // not timeout
+            if (fetchCount >= 0) {
+                if (firstScreenImagesDetail.length === protocolRemovedFirstScreenImages.length) {
+                    clearInterval(timer);
+                    runCallbackWithImages(firstScreenImagesDetail);
+                }
+            } else { // timeout
+                if (firstScreenImagesDetail.length > 0) {
+                    runCallbackWithImages(firstScreenImagesDetail);
+                } else {
+                    callbackWithoutImages();
+                }
                 clearInterval(timer);
             }
         };
