@@ -491,9 +491,16 @@ module.exports = {
         var overideXhr = function (onRequestSend, afterRequestReturn) {
             var XhrProto = XMLHttpRequest.prototype;
             var oldXhrSend = XhrProto.send;
+            var oldXhrOpen = XhrProto.open;
+            XhrProto.open = function (method, url) {
+                this.acfst_http = this._http || {};
+                this.acfst_http.method = method;
+                this.acfst_http.url = url;
+                return oldXhrOpen.apply(this, SLICE.call(arguments));
+            };
             XhrProto.send = function () {
-                if (shouldCatchThisRequest(this._http.url)) {
-                    var requestKey = onRequestSend(this._http.url, 'xhr').requestKey;
+                if (shouldCatchThisRequest(this.acfst_http.url)) {
+                    var requestKey = onRequestSend(this.acfst_http.url, 'xhr').requestKey;
 
                     var oldReadyCallback = this.onreadystatechange;
                     this.onreadystatechange = function () {
