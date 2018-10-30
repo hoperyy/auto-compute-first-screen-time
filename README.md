@@ -242,7 +242,7 @@ Yes!
 
 ## Support jsonp ?
 
-Yes!
+Perhaps not...
 
 ## Support async js like webpack split bundle ?
 
