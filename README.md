@@ -252,11 +252,6 @@ Yes!
 
 ![details](imgs/2018-07-30-11-35-25.png)
 
-## TODO
-
-+   tests
-+   bugfix
-
 ## LICENSE
 
 BSD
