@@ -30,7 +30,7 @@ var generateOutput = function(perf, dot) {
             return;
         }
 
-        var forcedType = 'auto';
+        var forcedType = 'perf';
 
         if (options && options.type) {
             forcedType = options.type;

@@ -74,7 +74,7 @@ And then use it:
 
     +   `options.type`
 
-        Computing type, which should be one of below: `auto/perf/dot`. `auto` by default.
+        Computing type, which should be one of below: `auto/perf/dot`. `perf` by default.
 
         **We suggest you using type 'perf' because this type won't make image request at all and it covers 92+% mobile browsers.**
 
