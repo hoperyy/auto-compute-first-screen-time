@@ -1,6 +1,6 @@
 ## What is this ?
 
-A tool for computing first screen time of one page with inaccuracy less than 250ms automatically.
+A tool for computing first screen time of one page with inaccuracy of **0** automatically.
 
 ## What's the defination of *first screen time* ?
 
@@ -18,7 +18,7 @@ A tool for computing first screen time of one page with inaccuracy less than 250
 
 ## Precision
 
-The distance between average tested time and real first screen time is `+(0 ~ 250ms)` (tested in wifi/fast 3G/slow 3G)
+The distance between average tested time and real first screen time is **0** (tested in wifi/fast 3G/slow 3G)
 
 ## How To Use
 
@@ -84,7 +84,7 @@ And then use it:
         +   default
 
             ```javascript
-            onReport: function (result) {
+            onReport(result) {
                 // blank function
             }
             ```
@@ -94,7 +94,7 @@ And then use it:
             It will run when first screen time is found.
 
             ```javascript
-            onReport: function (result) {
+            onReport(result) {
                 if (result.success) {
                     console.log(result.firstScreenTime)
                 } else {
@@ -250,7 +250,7 @@ Yes!
 
 ## Details
 
-![details](imgs/2018-07-30-11-35-25.png)
+![details](imgs/2019-06-26-23-03-25.png)
 
 ## LICENSE
 
